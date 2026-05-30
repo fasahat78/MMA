@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --color-sky: oklch(92% 0.05 230);
+  --color-bubblegum: oklch(85% 0.11 350);
+  --color-sun: oklch(90% 0.13 95);
+  --color-mint: oklch(90% 0.09 160);
+  --color-ink: oklch(32% 0.04 280);
+
+  --radius-card: 1.5rem;
+  --duration-pop: 220ms;
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Baloo 2", "Comic Sans MS", "Segoe UI", system-ui, sans-serif;
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Compositor-friendly press feedback for big kid-sized buttons. */
+.btn-pop {
+  transition:
+    transform var(--duration-pop) var(--ease-bounce),
+    filter var(--duration-pop) ease;
+  will-change: transform;
+}
+.btn-pop:active {
+  transform: scale(0.94);
+}
+.btn-pop:focus-visible {
+  outline: 4px solid oklch(70% 0.18 250);
+  outline-offset: 3px;
+}
+
+@keyframes gem-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-32px) scale(1.4);
+    opacity: 0;
+  }
+}
+.gem-float {
+  animation: gem-float 700ms var(--ease-bounce) forwards;
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in var(--duration-pop) var(--ease-bounce) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-pop,
+  .gem-float,
+  .pop-in {
+    animation: none !important;
+    transition: none !important;
+  }
+}
