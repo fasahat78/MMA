@@ -3,6 +3,7 @@ import { MAZE_SCENE_KEY, type MazeSceneData } from "./gameBridge";
 import { generateMaze, type Cell, type GeneratedMaze } from "./mazeGenerator";
 import { colorsForTheme } from "../data/maps";
 import { POWERUPS, chaserConfig, powerUpCount } from "../data/modes";
+import { sfx } from "../audio/sound";
 
 // Spec v2 §12 — grid maze rendered in Phaser. Player moves tile-by-tile,
 // cannot pass walls, collects gems, wins on the exit tile.
@@ -455,6 +456,7 @@ export class MazeScene extends Phaser.Scene {
   private activateShield() {
     this.invulnUntil = this.time.now + POWERUPS.durationMs;
     this.player.setAlpha(1);
+    sfx.shield();
     this.emitEffects(true);
   }
 
@@ -462,12 +464,14 @@ export class MazeScene extends Phaser.Scene {
   private activateStun() {
     this.chaserStunnedUntil = this.time.now + POWERUPS.durationMs;
     this.chaser?.setText(POWERUPS.stunnedChaserEmoji);
+    sfx.stun();
     this.emitEffects(true);
   }
 
   private collectGem(gem: Phaser.GameObjects.Text, key: string) {
     this.collected += 1;
     this.gemSprites.delete(key);
+    sfx.gem();
     this.sceneData.bridge.onGemCollected(this.collected);
     if (this.sceneData.reducedMotion) {
       gem.destroy();
@@ -488,6 +492,7 @@ export class MazeScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     this.stopChaser();
+    sfx.win();
     this.sceneData.bridge.onMazeComplete({
       mapId: this.sceneData.mapId,
       gemsCollected: this.collected,
@@ -499,6 +504,7 @@ export class MazeScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     this.stopChaser();
+    sfx.caught();
     this.sceneData.bridge.onCaught();
   }
 

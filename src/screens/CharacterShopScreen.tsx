@@ -3,6 +3,7 @@ import { characters, rarityStyles } from "../data/characters";
 import { selectCharacter, unlockCharacter, useProgress } from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
+import { sfx } from "../audio/sound";
 
 interface Props {
   onBack: () => void;
@@ -19,7 +20,7 @@ export function CharacterShopScreen({ onBack, onParentGate }: Props) {
       setNotice("Not enough gems. Collect more gems in mazes.");
       return;
     }
-    unlockCharacter(id);
+    if (unlockCharacter(id)) sfx.unlock();
     setNotice(null);
   }
 

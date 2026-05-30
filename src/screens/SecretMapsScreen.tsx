@@ -10,6 +10,7 @@ import {
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
 import { ModePicker } from "../components/ui/ModePicker";
+import { sfx } from "../audio/sound";
 import { ModeBadges } from "../components/ui/ModeBadges";
 import type { ActiveMap } from "../types/nav";
 
@@ -61,7 +62,7 @@ export function SecretMapsScreen({ onBack, onPlaySecret, onParentGate }: Props) 
       setNotice("Not enough gems. Keep playing to earn more gems.");
       return;
     }
-    unlockSecretMap(id);
+    if (unlockSecretMap(id)) sfx.unlock();
     setNotice(null);
   }
 

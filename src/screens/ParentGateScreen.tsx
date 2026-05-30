@@ -10,6 +10,7 @@ import {
   useProgress,
 } from "../store/progressStore";
 import { Button } from "../components/ui/Button";
+import { sfx } from "../audio/sound";
 
 interface Props {
   onClose: () => void;
@@ -47,6 +48,7 @@ export function ParentGateScreen({ onClose }: Props) {
   }
 
   function finish(message: string) {
+    sfx.unlock();
     setDoneMessage(message);
     setPhase("done");
   }

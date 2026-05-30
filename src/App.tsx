@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Screen } from "./types/game";
 import type { ActiveMap, WinPayload } from "./types/nav";
 import { difficultySettings, getMainMap, getSecretMap } from "./data/maps";
+import { useProgress } from "./store/progressStore";
+import { attachAutoStart, setMusicEnabled, setSoundEnabled } from "./audio/sound";
 import { HomeScreen } from "./screens/HomeScreen";
 import { MapSelectScreen } from "./screens/MapSelectScreen";
 import { GameScreen } from "./screens/GameScreen";
@@ -19,6 +21,20 @@ export default function App() {
   const [activeMap, setActiveMap] = useState<ActiveMap | null>(null);
   const [winPayload, setWinPayload] = useState<WinPayload | null>(null);
   const [showParentGate, setShowParentGate] = useState(false);
+  const { soundEnabled, musicEnabled } = useProgress();
+
+  // Web Audio is blocked until a gesture — arm it once on mount.
+  useEffect(() => {
+    attachAutoStart();
+  }, []);
+
+  // Keep the audio engine in sync with the persisted Settings toggles.
+  useEffect(() => {
+    setSoundEnabled(soundEnabled);
+  }, [soundEnabled]);
+  useEffect(() => {
+    setMusicEnabled(musicEnabled);
+  }, [musicEnabled]);
 
   function play(map: ActiveMap) {
     setActiveMap(map);

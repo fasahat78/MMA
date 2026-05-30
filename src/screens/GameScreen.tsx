@@ -246,6 +246,7 @@ function DpadButton({ label, onPress }: { label: string; onPress: () => void }) 
   return (
     <Button
       variant="secondary"
+      noSound
       className="h-16 w-16 rounded-2xl px-0 py-0 text-2xl"
       onClick={onPress}
       aria-label={`Move ${label}`}

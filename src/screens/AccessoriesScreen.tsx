@@ -4,6 +4,7 @@ import { getCharacter } from "../data/characters";
 import { equipAccessory, unlockAccessory, useProgress } from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
+import { sfx } from "../audio/sound";
 
 interface Props {
   onBack: () => void;
@@ -20,7 +21,7 @@ export function AccessoriesScreen({ onBack }: Props) {
       setNotice("Not enough gems. Collect more gems in mazes.");
       return;
     }
-    unlockAccessory(id);
+    if (unlockAccessory(id)) sfx.unlock();
     setNotice(null);
   }
 
