@@ -30,6 +30,10 @@ function persist() {
   }
 }
 
+// Write the (possibly migrated) state back immediately, so an upgraded save
+// is durable even if the player never changes anything this session.
+persist();
+
 function setState(next: PlayerProgress) {
   state = next;
   persist();
@@ -95,6 +99,19 @@ export function spendGems(amount: number): boolean {
   return true;
 }
 
+// Immutably add `mode` to a map's completed-modes list, in canonical order.
+function withMode(
+  record: Record<string, GameMode[]>,
+  mapId: string,
+  mode: GameMode,
+): Record<string, GameMode[]> {
+  const order: GameMode[] = ["easy", "medium", "hard"];
+  const current = record[mapId] ?? [];
+  if (current.includes(mode)) return record;
+  const next = [...current, mode].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return { ...record, [mapId]: next };
+}
+
 export function completeMainMap(mapId: string, earnedGems: number) {
   const alreadyComplete = state.completedMapIds.includes(mapId);
   setState({
@@ -103,6 +120,7 @@ export function completeMainMap(mapId: string, earnedGems: number) {
     completedMapIds: alreadyComplete
       ? state.completedMapIds
       : [...state.completedMapIds, mapId],
+    completedMapModes: withMode(state.completedMapModes, mapId, state.gameMode),
   });
 }
 
@@ -114,11 +132,20 @@ export function completeSecretMap(mapId: string, earnedGems: number) {
     completedSecretMapIds: alreadyComplete
       ? state.completedSecretMapIds
       : [...state.completedSecretMapIds, mapId],
+    completedSecretMapModes: withMode(state.completedSecretMapModes, mapId, state.gameMode),
   });
 }
 
 export function isMainMapCompleted(mapId: string): boolean {
   return state.completedMapIds.includes(mapId);
+}
+
+export function mainMapCompletedModes(mapId: string): GameMode[] {
+  return state.completedMapModes[mapId] ?? [];
+}
+
+export function secretMapCompletedModes(mapId: string): GameMode[] {
+  return state.completedSecretMapModes[mapId] ?? [];
 }
 
 export function unlockCharacter(characterId: string): boolean {
@@ -209,5 +236,10 @@ export function grantSecretMap(secretMapId: string) {
 }
 
 export function resetProgress() {
-  setState({ ...defaultProgress, equippedAccessories: { ...defaultProgress.equippedAccessories } });
+  setState({
+    ...defaultProgress,
+    equippedAccessories: { ...defaultProgress.equippedAccessories },
+    completedMapModes: {},
+    completedSecretMapModes: {},
+  });
 }

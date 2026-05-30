@@ -59,6 +59,7 @@ check("New maze unlocked message", await page.getByText("A new maze is unlocked!
 // Save reflects completion + gems.
 const progress = await page.evaluate(() => JSON.parse(localStorage.getItem("mma:progress")));
 check("Jungle marked complete in save", progress.completedMapIds.includes("jungle"));
+check("Completion recorded under Easy mode", (progress.completedMapModes?.jungle ?? []).includes("easy"));
 check("Gems earned (>= 70 from finish+first)", progress.totalGems >= 70);
 
 // Next map is now unlocked in Map Select.

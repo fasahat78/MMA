@@ -3,12 +3,14 @@ import { difficultySettings, secretMaps } from "../data/maps";
 import {
   allMainMapsComplete,
   isSecretMapAvailable,
+  secretMapCompletedModes,
   unlockSecretMap,
   useProgress,
 } from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
 import { ModePicker } from "../components/ui/ModePicker";
+import { ModeBadges } from "../components/ui/ModeBadges";
 import type { ActiveMap } from "../types/nav";
 
 interface Props {
@@ -97,7 +99,12 @@ export function SecretMapsScreen({ onBack, onPlaySecret, onParentGate }: Props) 
               <div className="flex-1">
                 <p className="font-extrabold text-slate-700">{map.name}</p>
                 <p className="text-sm font-bold text-slate-400">{"⭐".repeat(map.difficulty)}</p>
-                {completed && <p className="text-sm font-bold text-emerald-600">✅ Complete</p>}
+                {completed && (
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <span className="text-sm font-bold text-emerald-600">✅</span>
+                    <ModeBadges completedModes={secretMapCompletedModes(map.id)} />
+                  </div>
+                )}
               </div>
 
               {unlocked ? (

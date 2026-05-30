@@ -67,7 +67,7 @@ check("Secret maps hidden message", await page.getByText("Secret maps are hidden
 await page.reload({ waitUntil: "networkidle" });
 const saved = await page.evaluate(() => localStorage.getItem("mma:progress"));
 const parsed = saved ? JSON.parse(saved) : {};
-check("Progress persisted with version", parsed.version === 2);
+check("Progress persisted with version", parsed.version === 3);
 check("Granted gems persisted (>=500)", (parsed.totalGems ?? 0) >= 500);
 
 check("No console/page errors", errors.length === 0);

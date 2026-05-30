@@ -1,7 +1,13 @@
 import { mainMaps, difficultySettings } from "../data/maps";
-import { isMainMapCompleted, isMapUnlocked, useProgress } from "../store/progressStore";
+import {
+  isMainMapCompleted,
+  isMapUnlocked,
+  mainMapCompletedModes,
+  useProgress,
+} from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { ModePicker } from "../components/ui/ModePicker";
+import { ModeBadges } from "../components/ui/ModeBadges";
 import type { ActiveMap } from "../types/nav";
 
 interface Props {
@@ -28,6 +34,7 @@ export function MapSelectScreen({ onBack, onSelectMap }: Props) {
         {mainMaps.map((map) => {
           const unlocked = isMapUnlocked(map.id);
           const completed = isMainMapCompleted(map.id);
+          const completedModes = mainMapCompletedModes(map.id);
           const setting = difficultySettings[map.difficulty];
 
           return (
@@ -66,7 +73,10 @@ export function MapSelectScreen({ onBack, onSelectMap }: Props) {
               </span>
               <span className="mt-1 text-sm font-extrabold text-slate-700">{map.name}</span>
               {unlocked ? (
-                <Stars count={map.difficulty} />
+                <>
+                  <Stars count={map.difficulty} />
+                  {completed && <ModeBadges completedModes={completedModes} className="mt-1" />}
+                </>
               ) : (
                 <span className="mt-1 text-[11px] font-semibold leading-tight text-slate-500">
                   Complete the previous maze to unlock.

@@ -11,7 +11,8 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:win": "node tests/win.mjs",
     "test:chaser": "node tests/chaser.mjs",
-    "test:powerups": "node tests/powerups.mjs"
+    "test:powerups": "node tests/powerups.mjs",
+    "test:migration": "node tests/migration.mjs"
   },
   "dependencies": {
     "phaser": "^3.88.2",

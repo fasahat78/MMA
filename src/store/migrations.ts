@@ -2,8 +2,8 @@ import type { PlayerProgress } from "../types/game";
 import { freeAccessoryIds } from "../data/accessories";
 
 // Spec v2 §11 / §11.1 — versioned save with a migration shim.
-// v2 added `gameMode` (Easy/Medium/Hard) after the MVP.
-export const SAVE_VERSION = 2;
+// v2 added `gameMode` (Easy/Medium/Hard); v3 added per-map completed-modes.
+export const SAVE_VERSION = 3;
 export const SAVE_KEY = "mma:progress";
 
 export const defaultProgress: PlayerProgress = {
@@ -24,6 +24,8 @@ export const defaultProgress: PlayerProgress = {
   completedMapIds: [],
   unlockedSecretMapIds: [],
   completedSecretMapIds: [],
+  completedMapModes: {},
+  completedSecretMapModes: {},
   soundEnabled: true,
   musicEnabled: true,
 };
@@ -36,6 +38,21 @@ type Migration = (data: Record<string, unknown>) => Record<string, unknown>;
 const migrations: Record<number, Migration> = {
   // v1 -> v2: add the play-mode field, defaulting existing players to Easy.
   1: (data) => ({ ...data, version: 2, gameMode: "easy" }),
+  // v2 -> v3: add per-map completed-modes. Mode wasn't recorded before, so
+  // best-effort attribute prior completions to Easy (the original default).
+  2: (data) => {
+    const toEasy = (ids: unknown): Record<string, string[]> => {
+      const out: Record<string, string[]> = {};
+      if (Array.isArray(ids)) for (const id of ids) if (typeof id === "string") out[id] = ["easy"];
+      return out;
+    };
+    return {
+      ...data,
+      version: 3,
+      completedMapModes: toEasy(data.completedMapIds),
+      completedSecretMapModes: toEasy(data.completedSecretMapIds),
+    };
+  },
 };
 
 export function migrate(raw: unknown): PlayerProgress {

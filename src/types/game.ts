@@ -78,6 +78,9 @@ export interface PlayerProgress {
   completedMapIds: string[];
   unlockedSecretMapIds: string[];
   completedSecretMapIds: string[];
+  // Which modes each map has been cleared in (for the map-card badges).
+  completedMapModes: Record<string, GameMode[]>;
+  completedSecretMapModes: Record<string, GameMode[]>;
   soundEnabled: boolean;
   musicEnabled: boolean;
 }
