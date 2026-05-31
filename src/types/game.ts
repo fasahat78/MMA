@@ -83,6 +83,7 @@ export interface PlayerProgress {
   completedSecretMapModes: Record<string, GameMode[]>;
   soundEnabled: boolean;
   musicEnabled: boolean;
+  musicTrackId: string;
 }
 
 // Tiles produced by the maze generator (spec v2 §12).

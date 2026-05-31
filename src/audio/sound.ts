@@ -2,6 +2,8 @@
 // Cheerful chiptune blips for events + a gentle looping background melody.
 // All calls are defensive: if audio is unavailable, everything no-ops.
 
+import { defaultTrackId, getTrack, type MusicTrack } from "./tracks";
+
 type Wave = OscillatorType;
 
 let ctx: AudioContext | null = null;
@@ -118,14 +120,12 @@ export const sfx = {
 
 // --- Background music ------------------------------------------------------
 
-// C-major pentatonic loop — always pleasant, never dissonant.
-const MELODY = [523.25, 659.25, 783.99, 880.0, 783.99, 659.25, 587.33, 659.25];
-const BASS = [130.81, 0, 196.0, 0, 174.61, 0, 196.0, 0];
-const BEAT = 0.36;
+let currentTrack: MusicTrack = getTrack(defaultTrackId);
 
 function musicNote(freq: number, bass: number, start: number) {
-  if (freq > 0) tone({ freq, start, duration: BEAT * 0.9, type: "triangle", vol: 0.05 });
-  if (bass > 0) tone({ freq: bass, start, duration: BEAT * 1.4, type: "sine", vol: 0.06 });
+  const beat = currentTrack.beat;
+  if (freq > 0) tone({ freq, start, duration: beat * 0.9, type: currentTrack.wave, vol: 0.05 });
+  if (bass > 0) tone({ freq: bass, start, duration: beat * 1.4, type: "sine", vol: 0.06 });
 }
 
 function scheduleMusic() {
@@ -133,9 +133,9 @@ function scheduleMusic() {
   if (!c || !musicPlaying || !musicOn) return;
   // Lookahead scheduler: queue notes ~0.4s ahead of the clock.
   while (nextNoteTime < c.currentTime + 0.4) {
-    const i = noteIndex % MELODY.length;
-    musicNote(MELODY[i], BASS[i], nextNoteTime - c.currentTime);
-    nextNoteTime += BEAT;
+    const i = noteIndex % currentTrack.melody.length;
+    musicNote(currentTrack.melody[i], currentTrack.bass[i], nextNoteTime - c.currentTime);
+    nextNoteTime += currentTrack.beat;
     noteIndex++;
   }
   musicTimer = window.setTimeout(scheduleMusic, 90);
@@ -170,6 +170,18 @@ export function setMusicEnabled(on: boolean) {
     startMusic();
   } else {
     stopMusic();
+  }
+}
+
+export function setMusicTrack(id: string) {
+  const track = getTrack(id);
+  if (track.id === currentTrack.id) return;
+  currentTrack = track;
+  noteIndex = 0;
+  // Switch live if music is playing.
+  if (musicPlaying) {
+    stopMusic();
+    startMusic();
   }
 }
 

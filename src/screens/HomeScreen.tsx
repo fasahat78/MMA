@@ -1,9 +1,9 @@
 import type { Screen } from "../types/game";
 import { useProgress } from "../store/progressStore";
 import { getCharacter } from "../data/characters";
-import { getAccessory } from "../data/accessories";
 import { Button } from "../components/ui/Button";
 import { GemCounter } from "../components/ui/GemCounter";
+import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -14,9 +14,6 @@ interface Props {
 export function HomeScreen({ onNavigate, onPlay }: Props) {
   const progress = useProgress();
   const character = getCharacter(progress.selectedCharacterId);
-  const hat = progress.equippedAccessories.hat
-    ? getAccessory(progress.equippedAccessories.hat)
-    : null;
 
   return (
     <div className="min-h-full bg-gradient-to-b from-sky-300 via-fuchsia-200 to-amber-200">
@@ -32,15 +29,12 @@ export function HomeScreen({ onNavigate, onPlay }: Props) {
         </h1>
 
         <div className="pop-in my-8 flex flex-col items-center">
-          <div className="relative grid h-36 w-36 place-items-center rounded-[2rem] bg-white/70 shadow-xl">
-            <span className="text-7xl" aria-hidden>
-              {character?.emoji ?? "🐧"}
-            </span>
-            {hat && (
-              <span className="absolute -top-3 text-3xl" aria-hidden>
-                {hat.emoji}
-              </span>
-            )}
+          <div className="grid place-items-center rounded-[2rem] bg-white/70 p-4 shadow-xl">
+            <CharacterAvatar
+              characterId={progress.selectedCharacterId}
+              equipped={progress.equippedAccessories}
+              size="lg"
+            />
           </div>
           <p className="mt-3 text-xl font-extrabold text-slate-700">{character?.name ?? "Penguin"}</p>
         </div>

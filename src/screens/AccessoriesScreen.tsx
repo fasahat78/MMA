@@ -4,6 +4,7 @@ import { getCharacter } from "../data/characters";
 import { equipAccessory, unlockAccessory, useProgress } from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
+import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 import { sfx } from "../audio/sound";
 
 interface Props {
@@ -27,10 +28,12 @@ export function AccessoriesScreen({ onBack }: Props) {
 
   return (
     <ScreenShell title="Accessories" emoji="🎒" gems={progress.totalGems} onBack={onBack}>
-      <div className="mb-4 flex items-center gap-3 rounded-3xl bg-white/70 p-3">
-        <span className="text-4xl" aria-hidden>
-          {character?.emoji ?? "🐧"}
-        </span>
+      <div className="mb-4 flex items-center gap-4 rounded-3xl bg-white/70 p-4">
+        <CharacterAvatar
+          characterId={progress.selectedCharacterId}
+          equipped={progress.equippedAccessories}
+          size="md"
+        />
         <p className="font-extrabold text-slate-700">
           Dressing up {character?.name ?? "Penguin"}
         </p>

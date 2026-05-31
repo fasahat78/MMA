@@ -214,6 +214,10 @@ export function setMusicEnabled(enabled: boolean) {
   setState({ ...state, musicEnabled: enabled });
 }
 
+export function setMusicTrackId(trackId: string) {
+  setState({ ...state, musicTrackId: trackId });
+}
+
 // Mock premium grants (spec v2 §15) — applied after the Parent Gate.
 export function grantGems(amount: number) {
   addGems(amount);

@@ -2,11 +2,13 @@ import { useState } from "react";
 import {
   resetProgress,
   setMusicEnabled,
+  setMusicTrackId,
   setSoundEnabled,
   useProgress,
 } from "../store/progressStore";
 import { ScreenShell } from "../components/ui/ScreenShell";
 import { Button } from "../components/ui/Button";
+import { musicTracks } from "../audio/tracks";
 
 interface Props {
   onBack: () => void;
@@ -58,6 +60,39 @@ export function SettingsScreen({ onBack }: Props) {
       <div className="space-y-3">
         <Toggle label="Sound" emoji="🔊" on={progress.soundEnabled} onChange={setSoundEnabled} />
         <Toggle label="Music" emoji="🎵" on={progress.musicEnabled} onChange={setMusicEnabled} />
+      </div>
+
+      {/* Background music track picker */}
+      <div className="mt-4 rounded-3xl bg-white p-4 shadow-md">
+        <p className="mb-1 text-lg font-extrabold text-slate-700">
+          <span aria-hidden>🎶 </span>Music Track
+        </p>
+        {!progress.musicEnabled && (
+          <p className="mb-2 text-sm font-semibold text-slate-400">Turn on Music to hear it.</p>
+        )}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Music track">
+          {musicTracks.map((track) => {
+            const selected = progress.musicTrackId === track.id;
+            return (
+              <button
+                key={track.id}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setMusicTrackId(track.id)}
+                className={`btn-pop flex flex-col items-center rounded-2xl px-2 py-2 font-extrabold ${
+                  selected
+                    ? "bg-fuchsia-500 text-white shadow-md"
+                    : "bg-white text-slate-600 ring-2 ring-fuchsia-100"
+                }`}
+              >
+                <span className="text-2xl" aria-hidden>
+                  {track.emoji}
+                </span>
+                <span className="text-sm">{track.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-8 rounded-3xl bg-white/70 p-5 text-center">

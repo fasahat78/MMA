@@ -3,7 +3,7 @@ import type { Screen } from "./types/game";
 import type { ActiveMap, WinPayload } from "./types/nav";
 import { difficultySettings, getMainMap, getSecretMap } from "./data/maps";
 import { useProgress } from "./store/progressStore";
-import { attachAutoStart, setMusicEnabled, setSoundEnabled } from "./audio/sound";
+import { attachAutoStart, setMusicEnabled, setMusicTrack, setSoundEnabled } from "./audio/sound";
 import { HomeScreen } from "./screens/HomeScreen";
 import { MapSelectScreen } from "./screens/MapSelectScreen";
 import { GameScreen } from "./screens/GameScreen";
@@ -21,7 +21,7 @@ export default function App() {
   const [activeMap, setActiveMap] = useState<ActiveMap | null>(null);
   const [winPayload, setWinPayload] = useState<WinPayload | null>(null);
   const [showParentGate, setShowParentGate] = useState(false);
-  const { soundEnabled, musicEnabled } = useProgress();
+  const { soundEnabled, musicEnabled, musicTrackId } = useProgress();
 
   // Web Audio is blocked until a gesture — arm it once on mount.
   useEffect(() => {
@@ -35,6 +35,9 @@ export default function App() {
   useEffect(() => {
     setMusicEnabled(musicEnabled);
   }, [musicEnabled]);
+  useEffect(() => {
+    setMusicTrack(musicTrackId);
+  }, [musicTrackId]);
 
   function play(map: ActiveMap) {
     setActiveMap(map);

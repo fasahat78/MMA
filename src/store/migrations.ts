@@ -1,9 +1,11 @@
 import type { PlayerProgress } from "../types/game";
 import { freeAccessoryIds } from "../data/accessories";
+import { defaultTrackId } from "../audio/tracks";
 
 // Spec v2 §11 / §11.1 — versioned save with a migration shim.
-// v2 added `gameMode` (Easy/Medium/Hard); v3 added per-map completed-modes.
-export const SAVE_VERSION = 3;
+// v2 added `gameMode` (Easy/Medium/Hard); v3 added per-map completed-modes;
+// v4 added `musicTrackId`.
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = "mma:progress";
 
 export const defaultProgress: PlayerProgress = {
@@ -28,6 +30,7 @@ export const defaultProgress: PlayerProgress = {
   completedSecretMapModes: {},
   soundEnabled: true,
   musicEnabled: true,
+  musicTrackId: defaultTrackId,
 };
 
 // Migrations run in order. Each takes an untyped blob and returns one with a
@@ -53,6 +56,8 @@ const migrations: Record<number, Migration> = {
       completedSecretMapModes: toEasy(data.completedSecretMapIds),
     };
   },
+  // v3 -> v4: add the background-music track selection.
+  3: (data) => ({ ...data, version: 4, musicTrackId: defaultTrackId }),
 };
 
 export function migrate(raw: unknown): PlayerProgress {
