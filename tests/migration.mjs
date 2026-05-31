@@ -43,8 +43,9 @@ await page.getByText("🐾 Characters").click();
 await page.getByRole("button", { name: "Go back" }).click();
 
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("mma:progress")));
-check("Upgraded to version 3", saved.version === 3);
+check("Upgraded to current version (4)", saved.version === 4);
 check("gameMode backfilled to easy", saved.gameMode === "easy");
+check("musicTrackId backfilled", typeof saved.musicTrackId === "string" && saved.musicTrackId.length > 0);
 check("Gems preserved", saved.totalGems === 120);
 check("Completions preserved", saved.completedMapIds.includes("jungle"));
 check(
