@@ -170,6 +170,11 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
         >
           ← Maps
         </button>
+        {/* Current maze name — clear identifier of which maze you're in. */}
+        <div className="absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/85 px-4 py-2 text-base font-extrabold text-slate-700 shadow-md">
+          <span aria-hidden>{activeMap.emoji} </span>
+          {activeMap.name}
+        </div>
         <div className="flex items-center gap-2">
           {chaserEmoji && (
             <div

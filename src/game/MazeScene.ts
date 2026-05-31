@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { MAZE_SCENE_KEY, type MazeSceneData } from "./gameBridge";
 import { generateMaze, type Cell, type GeneratedMaze } from "./mazeGenerator";
-import { colorsForTheme } from "../data/maps";
+import { colorsForTheme, decorForTheme } from "../data/maps";
 import { POWERUPS, chaserConfig, powerUpCount } from "../data/modes";
 import { sfx } from "../audio/sound";
 
@@ -323,6 +323,8 @@ export class MazeScene extends Phaser.Scene {
 
     const fontSize = Math.floor(this.tileSize * 0.6);
 
+    this.scatterDecor(theme);
+
     // Exit tile marker.
     this.add
       .text(
@@ -343,6 +345,36 @@ export class MazeScene extends Phaser.Scene {
           this.gemSprites.set(this.key(r, c), gem);
         }
       }
+    }
+  }
+
+  // Sprinkle themed scenery on some wall tiles so the maze clearly reads as
+  // its theme. Purely decorative (sits behind gems/player; on walls only, so
+  // it never blocks the path or looks like a pickup).
+  private scatterDecor(theme: string) {
+    const decor = decorForTheme(theme);
+    const wallCells: Cell[] = [];
+    for (let r = 1; r < this.maze.rows - 1; r++) {
+      for (let c = 1; c < this.maze.cols - 1; c++) {
+        if (this.maze.tiles[r][c] === "wall") wallCells.push({ r, c });
+      }
+    }
+    if (wallCells.length === 0) return;
+
+    const target = Math.min(
+      wallCells.length,
+      Math.max(5, Math.floor((this.maze.rows * this.maze.cols) / 22)),
+    );
+    const size = Math.floor(this.tileSize * 0.5);
+    for (let i = 0; i < target; i++) {
+      const pick = Math.floor(Math.random() * wallCells.length);
+      const { r, c } = wallCells.splice(pick, 1)[0];
+      const emoji = decor[Math.floor(Math.random() * decor.length)];
+      this.add
+        .text(this.tileCenterX(c), this.tileCenterY(r), emoji, { fontSize: `${size}px` })
+        .setOrigin(0.5)
+        .setAlpha(0.9)
+        .setDepth(1);
     }
   }
 

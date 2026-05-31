@@ -64,6 +64,34 @@ export function colorsForTheme(theme: string) {
   return themeColors[theme] ?? { bg: 0xfde8ff, wall: 0xc9a6e0, path: 0xfff6ff };
 }
 
+// Themed scenery scattered through each maze so it clearly reads as its theme
+// (chocolate bars, lollipops, rainbows…). Keyed by theme; secret maps use their
+// id as the theme. Avoid 💎 here — that's the gem pickup.
+export const themeDecor: Record<string, string[]> = {
+  jungle: ["🌴", "🍃", "🐒", "🦜"],
+  ice_cream: ["🍦", "🍨", "🧁"],
+  chocolate: ["🍫", "🍪", "🤎"],
+  candy: ["🍭", "🍬", "🍥"],
+  marshmallow: ["☁️", "🍡", "🤍"],
+  donut: ["🍩", "🥨", "🍪"],
+  gems: ["🔮", "💠", "🪙"],
+  animals: ["🐾", "🦁", "🐘", "🐰"],
+  forest: ["🌲", "🍄", "🦌", "🌰"],
+  beach: ["🏖️", "🐚", "🌊", "⛱️"],
+  snow: ["❄️", "⛄", "🌨️"],
+  rainbow: ["🌈", "⭐", "✨", "☀️"],
+  // Secret-map themes (theme === map id).
+  food_aisle: ["🛒", "🥫", "🥖", "🧀"],
+  junk_food: ["🍟", "🍔", "🌭", "🍕"],
+  restaurant: ["🍽️", "🍝", "🍷", "🍤"],
+  dessert_palace: ["🧁", "🍰", "🍮", "🍓"],
+  mega_mix: ["🌈", "🍭", "🍫", "🍦", "💠"],
+};
+
+export function decorForTheme(theme: string): string[] {
+  return themeDecor[theme] ?? ["✨"];
+}
+
 export function getMainMap(id: string): MainMap | undefined {
   return mainMaps.find((m) => m.id === id);
 }
