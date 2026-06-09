@@ -17,6 +17,7 @@ import {
   nextMainMapId,
 } from "../store/progressStore";
 import { POWERUPS, chaserConfig } from "../data/modes";
+import { track } from "../analytics/track";
 import { Button } from "../components/ui/Button";
 
 interface Props {
@@ -61,7 +62,10 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
     const bridge: GameBridge = {
       onGemCollected: (count) => setLiveGems(count),
       onMazeComplete: (result) => handleComplete(result),
-      onCaught: () => setCaught(true),
+      onCaught: () => {
+        track("maze_caught", { map: activeMap.id, mode: getProgress().gameMode });
+        setCaught(true);
+      },
       onEffectsChanged: (next) => setEffects(next),
       onExit,
     };
@@ -91,6 +95,8 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
       game.scene.add(MAZE_SCENE_KEY, MazeScene, true, sceneData);
       gameRef.current = game;
       setLoading(false);
+      // A "play": someone actually started a maze.
+      track("maze_start", { map: activeMap.id, mode: getProgress().gameMode, kind: activeMap.kind });
     })();
 
     // Spec v2 §12.1 — always destroy on unmount to avoid duplicate canvases.
@@ -125,6 +131,9 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
     } else {
       completeSecretMap(result.mapId, bonuses.total);
     }
+
+    // A completed maze.
+    track("maze_complete", { map: activeMap.id, mode: getProgress().gameMode, kind: activeMap.kind });
 
     const unlockedSecretMapsNow =
       activeMap.kind === "main" && !wasAllComplete && allMainMapsComplete();
