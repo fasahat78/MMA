@@ -23,7 +23,7 @@ await page.addInitScript(() => {
   } catch {}
 });
 
-await page.goto(BASE, { waitUntil: "networkidle" });
+await page.goto(BASE + "#/game", { waitUntil: "networkidle" });
 
 // Choose Hard mode, then enter the first maze.
 await page.getByText("▶ Play").click();

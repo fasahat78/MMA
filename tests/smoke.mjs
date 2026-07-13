@@ -18,7 +18,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 780 } });
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 page.on("pageerror", (e) => errors.push(String(e)));
 
-await page.goto(BASE, { waitUntil: "networkidle" });
+await page.goto(BASE + "#/game", { waitUntil: "networkidle" });
 
 // 1. Home renders.
 check("Home title visible", await page.getByText("Maze Mates").first().isVisible());

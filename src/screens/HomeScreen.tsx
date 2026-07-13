@@ -8,17 +8,21 @@ import { CharacterAvatar } from "../components/ui/CharacterAvatar";
 interface Props {
   onNavigate: (screen: Screen) => void;
   onPlay: () => void;
+  onExitToHub: () => void;
 }
 
 // Spec v2 §5.1
-export function HomeScreen({ onNavigate, onPlay }: Props) {
+export function HomeScreen({ onNavigate, onPlay, onExitToHub }: Props) {
   const progress = useProgress();
   const character = getCharacter(progress.selectedCharacterId);
 
   return (
     <div className="min-h-full bg-gradient-to-b from-sky-300 via-fuchsia-200 to-amber-200">
       <div className="mx-auto flex min-h-full max-w-xl flex-col items-center px-6 pb-12 pt-10">
-        <div className="mb-2 self-end">
+        <div className="mb-2 flex w-full items-center justify-between">
+          <Button variant="ghost" className="px-4 py-2 text-base" onClick={onExitToHub}>
+            ← vqvb
+          </Button>
           <GemCounter gems={progress.totalGems} />
         </div>
 

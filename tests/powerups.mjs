@@ -31,7 +31,7 @@ await page.addInitScript(() => {
   } catch {}
 });
 
-await page.goto(BASE, { waitUntil: "networkidle" });
+await page.goto(BASE + "#/game", { waitUntil: "networkidle" });
 
 // Medium mode (slow chaser, generous grace) so we can reach a power-up safely.
 await page.getByText("▶ Play").click();

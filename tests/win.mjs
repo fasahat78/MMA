@@ -30,7 +30,7 @@ await page.addInitScript(() => {
   } catch {}
 });
 
-await page.goto(BASE, { waitUntil: "networkidle" });
+await page.goto(BASE + "#/game", { waitUntil: "networkidle" });
 
 // Home -> Map Select -> Jungle Maze.
 await page.getByText("▶ Play").click();

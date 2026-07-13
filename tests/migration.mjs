@@ -37,7 +37,7 @@ await page.addInitScript(() => {
   );
 });
 
-await page.goto(BASE, { waitUntil: "networkidle" });
+await page.goto(BASE + "#/game", { waitUntil: "networkidle" });
 // Touch the store so the migrated state is written back to localStorage.
 await page.getByText("🐾 Characters").click();
 await page.getByRole("button", { name: "Go back" }).click();
