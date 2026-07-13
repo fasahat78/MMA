@@ -1,5 +1,6 @@
 import { NUMBER_WORDS, accentStyles, bookMeta, stories } from "./data/stories";
 import { StoryArt } from "./components/StoryArt";
+import { NotebookGallery } from "./components/NotebookGallery";
 
 interface Props {
   onOpenStory: (id: string) => void;
@@ -70,6 +71,9 @@ export function StoriesHomeScreen({ onOpenStory, onHome }: Props) {
             );
           })}
         </div>
+
+        {/* The original handwritten pages */}
+        <NotebookGallery />
 
         {/* Quote */}
         <blockquote className="mt-8 rounded-[2rem] bg-[#5B4636] p-8 text-center">

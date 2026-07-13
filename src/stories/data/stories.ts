@@ -165,3 +165,18 @@ export const bookMeta = {
 export function getStory(id: string): Story | undefined {
   return stories.find((s) => s.id === id);
 }
+
+// "From Zoya's Notebook" — photos of the original handwritten pages.
+// Files live in /public/notebook/. Any that are missing are skipped silently.
+export interface NotebookPage {
+  id: string;
+  src: string;
+  caption: string;
+}
+
+export const notebookPages: NotebookPage[] = [
+  { id: "cat", src: "/notebook/cat.jpg", caption: "The Cat That Loves to Eat" },
+  { id: "basketball", src: "/notebook/basketball.jpg", caption: "The Basketball That Bounces By Itself" },
+  { id: "bird", src: "/notebook/bird.jpg", caption: "The Bird That Looked Ugly" },
+  { id: "fridge", src: "/notebook/fridge.jpg", caption: "The Fridge That Ate Its Own Food" },
+];

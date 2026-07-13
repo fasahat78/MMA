@@ -29,7 +29,8 @@ check("All 4 stories listed", (await page.locator("button:has-text('Read →')")
 check("About the author shown", await page.getByText("About the Author").isVisible());
 
 // Open a story -> title page, then the story text.
-await page.getByRole("button", { name: /The Cat That Loves to Eat/ }).click();
+// .first() because the notebook thumbnails share the same captions.
+await page.getByRole("button", { name: /The Cat That Loves to Eat/ }).first().click();
 check("Story route is shareable", page.url().includes("#/stories/cat"));
 check("Title page shows", await page.getByText("STORY ONE").isVisible());
 await page.getByRole("button", { name: /Read the story/ }).click();
