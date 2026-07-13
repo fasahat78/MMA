@@ -26,6 +26,13 @@ export class MazeScene extends Phaser.Scene {
   private finished = false;
   private moving = false;
 
+  // Kept so a resize can re-lay-out in place rather than regenerating the maze
+  // (Safari collapsing its address bar fires resize mid-run).
+  private wallGfx?: Phaser.GameObjects.Graphics;
+  private exitSprite?: Phaser.GameObjects.Text;
+  private decorSprites: { r: number; c: number; sprite: Phaser.GameObjects.Text }[] = [];
+  private colors = { bg: 0, wall: 0, path: 0 };
+
   // Chaser (Medium/Hard modes only).
   private chaser?: Phaser.GameObjects.Text;
   private chaserRow = 0;
@@ -53,6 +60,9 @@ export class MazeScene extends Phaser.Scene {
     this.gemSprites.clear();
     this.shieldSprites.clear();
     this.stunSprites.clear();
+    this.decorSprites = [];
+    this.wallGfx = undefined;
+    this.exitSprite = undefined;
     this.chaser = undefined;
     this.chaserTimer = undefined;
     this.invulnUntil = 0;
@@ -306,27 +316,18 @@ export class MazeScene extends Phaser.Scene {
   }
 
   private drawMaze(theme: string) {
-    const colors = colorsForTheme(theme);
-    this.cameras.main.setBackgroundColor(colors.bg);
+    this.colors = colorsForTheme(theme);
+    this.cameras.main.setBackgroundColor(this.colors.bg);
 
-    const g = this.add.graphics();
-    for (let r = 0; r < this.maze.rows; r++) {
-      for (let c = 0; c < this.maze.cols; c++) {
-        const x = this.offsetX + c * this.tileSize;
-        const y = this.offsetY + r * this.tileSize;
-        const tile = this.maze.tiles[r][c];
-        const fill = tile === "wall" ? colors.wall : colors.path;
-        g.fillStyle(fill, 1);
-        g.fillRoundedRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2, 6);
-      }
-    }
+    this.wallGfx = this.add.graphics();
+    this.redrawTiles();
 
     const fontSize = Math.floor(this.tileSize * 0.6);
 
     this.scatterDecor(theme);
 
     // Exit tile marker.
-    this.add
+    this.exitSprite = this.add
       .text(
         this.tileCenterX(this.maze.exit.c),
         this.tileCenterY(this.maze.exit.r),
@@ -370,12 +371,60 @@ export class MazeScene extends Phaser.Scene {
       const pick = Math.floor(Math.random() * wallCells.length);
       const { r, c } = wallCells.splice(pick, 1)[0];
       const emoji = decor[Math.floor(Math.random() * decor.length)];
-      this.add
+      const sprite = this.add
         .text(this.tileCenterX(c), this.tileCenterY(r), emoji, { fontSize: `${size}px` })
         .setOrigin(0.5)
         .setAlpha(0.9)
         .setDepth(1);
+      this.decorSprites.push({ r, c, sprite });
     }
+  }
+
+  private redrawTiles() {
+    const g = this.wallGfx;
+    if (!g) return;
+    g.clear();
+    for (let r = 0; r < this.maze.rows; r++) {
+      for (let c = 0; c < this.maze.cols; c++) {
+        const x = this.offsetX + c * this.tileSize;
+        const y = this.offsetY + r * this.tileSize;
+        const fill = this.maze.tiles[r][c] === "wall" ? this.colors.wall : this.colors.path;
+        g.fillStyle(fill, 1);
+        g.fillRoundedRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2, 6);
+      }
+    }
+  }
+
+  // Re-fit everything to the new canvas size WITHOUT regenerating the maze, so
+  // a resize (e.g. mobile browser chrome collapsing) never wipes your progress.
+  private relayout() {
+    if (!this.maze || !this.wallGfx) return;
+    this.layout();
+    this.redrawTiles();
+
+    const fs = Math.floor(this.tileSize * 0.6);
+    const decorFs = Math.floor(this.tileSize * 0.5);
+    const actorFs = Math.floor(this.tileSize * 0.7);
+
+    const move = (sprite: Phaser.GameObjects.Text, r: number, c: number, size: number) => {
+      sprite.setPosition(this.tileCenterX(c), this.tileCenterY(r)).setFontSize(size);
+    };
+
+    if (this.exitSprite) move(this.exitSprite, this.maze.exit.r, this.maze.exit.c, fs);
+
+    const moveAll = (map: Map<string, Phaser.GameObjects.Text>, size: number) => {
+      map.forEach((sprite, key) => {
+        const [r, c] = key.split(",").map(Number);
+        move(sprite, r, c, size);
+      });
+    };
+    moveAll(this.gemSprites, fs);
+    moveAll(this.shieldSprites, fs);
+    moveAll(this.stunSprites, fs);
+
+    for (const d of this.decorSprites) move(d.sprite, d.r, d.c, decorFs);
+    if (this.player) move(this.player, this.playerRow, this.playerCol, actorFs);
+    if (this.chaser) move(this.chaser, this.chaserRow, this.chaserCol, actorFs);
   }
 
   private drawPlayer() {
@@ -575,8 +624,7 @@ export class MazeScene extends Phaser.Scene {
   }
 
   private onResize() {
-    // Simplest robust approach: rebuild the layout + redraw on resize.
-    this.scene.restart(this.sceneData);
+    this.relayout();
   }
 
   private tileCenterX(c: number) {

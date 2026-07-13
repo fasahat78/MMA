@@ -155,65 +155,88 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-fuchsia-100">
-      {/* Phaser mounts here */}
-      <div ref={containerRef} className="absolute inset-0" />
-
-      {loading && (
-        <div className="absolute inset-0 grid place-items-center bg-fuchsia-100 text-center">
-          <div>
-            <div className="pop-in text-5xl" aria-hidden>
-              {activeMap.emoji}
-            </div>
-            <p className="mt-3 text-lg font-extrabold text-fuchsia-700">Loading maze…</p>
-          </div>
-        </div>
-      )}
-
-      {/* HUD */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4">
+    // Three stacked rows: HUD / maze / D-pad. The maze gets its own space, so
+    // the controls can never overlap it (they used to float on top on mobile).
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-fuchsia-100">
+      {/* HUD row */}
+      <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           onClick={onExit}
-          className="btn-pop pointer-events-auto min-h-[48px] rounded-2xl bg-white/85 px-4 py-2 text-base font-extrabold text-slate-700 shadow-md"
+          className="btn-pop min-h-[44px] shrink-0 rounded-2xl bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md"
           aria-label="Back to map select"
         >
           ← Maps
         </button>
-        {/* Current maze name — clear identifier of which maze you're in. */}
-        <div className="absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/85 px-4 py-2 text-base font-extrabold text-slate-700 shadow-md">
-          <span aria-hidden>{activeMap.emoji} </span>
-          {activeMap.name}
+
+        {/* Maze name — truncates instead of colliding with the gem counter. */}
+        <div className="min-w-0 flex-1 text-center">
+          <span className="inline-block max-w-full truncate rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md">
+            <span aria-hidden>{activeMap.emoji} </span>
+            {activeMap.name}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex shrink-0 items-center gap-1">
           {chaserEmoji && (
             <div
-              className="rounded-full bg-white/85 px-3 py-2 text-lg shadow-md"
+              className="rounded-full bg-white/85 px-2 py-2 text-base shadow-md"
               aria-label={`${gameMode} mode`}
             >
               {chaserEmoji}
             </div>
           )}
-          <div className="rounded-full bg-white/85 px-4 py-2 text-lg font-extrabold text-fuchsia-700 shadow-md">
-            💎 {liveGems} / {activeMap.gemTarget}
+          <div className="rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-fuchsia-700 shadow-md">
+            💎 {liveGems}/{activeMap.gemTarget}
           </div>
         </div>
+      </header>
+
+      {/* Maze area — Phaser sizes itself to exactly this box. */}
+      <div className="relative min-h-0 flex-1">
+        <div ref={containerRef} className="absolute inset-0" />
+
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center bg-fuchsia-100 text-center">
+            <div>
+              <div className="pop-in text-5xl" aria-hidden>
+                {activeMap.emoji}
+              </div>
+              <p className="mt-3 text-lg font-extrabold text-fuchsia-700">Loading maze…</p>
+            </div>
+          </div>
+        )}
+
+        {/* Active power-up countdowns */}
+        {(effects.shieldSeconds > 0 || effects.stunSeconds > 0) && (
+          <div className="pointer-events-none absolute inset-x-0 top-2 flex justify-center gap-2">
+            {effects.shieldSeconds > 0 && (
+              <div className="pop-in rounded-full bg-sky-400/90 px-4 py-1.5 text-base font-black text-white shadow-md">
+                {POWERUPS.shieldEmoji} {effects.shieldSeconds}s
+              </div>
+            )}
+            {effects.stunSeconds > 0 && (
+              <div className="pop-in rounded-full bg-amber-400/90 px-4 py-1.5 text-base font-black text-amber-950 shadow-md">
+                {POWERUPS.stunEmoji} {effects.stunSeconds}s
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Active power-up countdowns */}
-      {(effects.shieldSeconds > 0 || effects.stunSeconds > 0) && (
-        <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center gap-2">
-          {effects.shieldSeconds > 0 && (
-            <div className="pop-in rounded-full bg-sky-400/90 px-4 py-1.5 text-base font-black text-white shadow-md">
-              {POWERUPS.shieldEmoji} {effects.shieldSeconds}s
-            </div>
-          )}
-          {effects.stunSeconds > 0 && (
-            <div className="pop-in rounded-full bg-amber-400/90 px-4 py-1.5 text-base font-black text-amber-950 shadow-md">
-              {POWERUPS.stunEmoji} {effects.stunSeconds}s
-            </div>
-          )}
+      {/* D-pad row (mobile + click). Keyboard also works on desktop. */}
+      <footer className="flex shrink-0 justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="grid grid-cols-3 grid-rows-3 gap-1.5">
+          <span />
+          <DpadButton label="▲" onPress={() => press("up")} />
+          <span />
+          <DpadButton label="◀" onPress={() => press("left")} />
+          <span />
+          <DpadButton label="▶" onPress={() => press("right")} />
+          <span />
+          <DpadButton label="▼" onPress={() => press("down")} />
+          <span />
         </div>
-      )}
+      </footer>
 
       {/* Caught overlay (Medium/Hard). Gentle, no penalty — just retry. */}
       {caught && (
@@ -237,31 +260,18 @@ export function GameScreen({ activeMap, onWin, onExit }: Props) {
           </div>
         </div>
       )}
-
-      {/* On-screen D-pad (mobile + click). Keyboard also works on desktop. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-5 sm:justify-end">
-        <div className="pointer-events-auto grid grid-cols-3 grid-rows-3 gap-2">
-          <span />
-          <DpadButton label="▲" onPress={() => press("up")} />
-          <span />
-          <DpadButton label="◀" onPress={() => press("left")} />
-          <span />
-          <DpadButton label="▶" onPress={() => press("right")} />
-          <span />
-          <DpadButton label="▼" onPress={() => press("down")} />
-          <span />
-        </div>
-      </div>
     </div>
   );
 }
 
+// 56px touch targets — comfortably above the 44px minimum, without eating the
+// maze area on small phones.
 function DpadButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Button
       variant="secondary"
       noSound
-      className="h-16 w-16 rounded-2xl px-0 py-0 text-2xl"
+      className="h-14 w-14 rounded-2xl px-0 py-0 text-xl"
       onClick={onPress}
       aria-label={`Move ${label}`}
     >
