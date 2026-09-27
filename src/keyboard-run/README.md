@@ -21,6 +21,20 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
 - **Fairer falling keys:** a 0.75 s warning with a red glow, and a checkpoint just before them.
 - **Renamed** to Block Dash.
 
+## World 1
+
+`#/play/block-dash` opens the **World 1 map**, and each stage lives at `#/play/block-dash/stage/w1-s<n>`.
+
+- **Stages** (`data/stages/world1.ts`) are written with `courseBuilder.ts`, which lays sections end to end.
+  - Stages 1–2 are beginner stages: holding forward and jumping lands every stepping stone.
+  - Stage 3 is the V0.1 course.
+  - Stages 4–5 expect some control in mid-air.
+- **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4, 8, 16. They're paid on every finish, Roblox-style.
+- **Progress** (`state/`): Wins, the unlocked stage and best times are saved on the device in `localStorage` (`block-dash-progress`, versioned).
+  - Finishing a stage opens the next one.
+  - A locked stage's link falls back to the map.
+- **Tests:** `npm run test:block-dash-stages` checks every stage can be cleared. It checks gaps and step heights, jumps every stone and climb with a beginner and a skilled test player, and respawns on every checkpoint. `npm run test:block-dash-world` runs the map, unlock and Wins flow in a browser.
+
 ## Phones and tablets
 
 Touch controls copy Roblox mobile, because that's what Zoya knows:

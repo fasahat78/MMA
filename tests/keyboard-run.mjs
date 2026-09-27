@@ -9,7 +9,8 @@ import { sandboxStage } from "../src/keyboard-run/data/stages/sandbox.ts";
 import { playerMovement } from "../src/keyboard-run/data/movement.ts";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:4317/";
-const ROUTE = BASE + "#/play/block-dash";
+// These checks use World 1 Stage 3 (the V0.1 course, stage/sandbox.ts geometry).
+const ROUTE = BASE + "#/play/block-dash/stage/w1-s3";
 const OLD_ROUTE = BASE + "#/play/keyboard-run";
 const zone = (id) => sandboxStage.obstacles.find((o) => o.id === id);
 /** Feet position on a zone's floor. */
@@ -37,6 +38,10 @@ page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.addInitScript(() => {
   window.__KR_E2E__ = true;
+  // Stages 1–5 open, so Stage 3 can be loaded directly.
+  if (!localStorage.getItem("block-dash-progress")) {
+    localStorage.setItem("block-dash-progress", JSON.stringify({ version: 1, wins: 0, unlockedStage: 5, completedStageIds: [], bestTimes: {} }));
+  }
 });
 
 const state = () => page.evaluate(() => window.__KR__.state());
@@ -67,8 +72,11 @@ async function holdUntil(key, predicate, arg) {
 // 1–2. The home page links to the game; the 3D world and player appear.
 await page.goto(BASE);
 await page.getByRole("button", { name: /Block Dash/ }).click();
+const mapShown = await page.getByRole("heading", { name: "World 1" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+check("Home page card opens the World 1 map", page.url().endsWith("#/play/block-dash") && mapShown);
+await page.getByRole("button", { name: "Play stage 3" }).click();
 await waitReady();
-check("Home page card opens the game", page.url().endsWith("#/play/block-dash"));
+check("Map opens Stage 3", page.url().endsWith("#/play/block-dash/stage/w1-s3") && (await page.getByText("World 1 · Stage 3").isVisible()));
 check("Game route opens with one canvas", (await page.locator("canvas").count()) === 1);
 await until((st) => st.grounded);
 let s = await state();
@@ -134,12 +142,14 @@ const finishedAt = (await state()).runTimeMs;
 await page.waitForTimeout(300); // deliberate: nothing should change
 check("Timer stops at the finish", (await state()).runTimeMs === finishedAt);
 
-// 15. Restart without refreshing.
-await page.keyboard.press("Enter");
+check("Finish pays 4 Wins for Stage 3", await page.getByText("+4 Wins").isVisible());
+
+// 15. Restart without refreshing (R after finishing; Enter = next stage).
+await page.keyboard.press("KeyR");
 await until((st) => !st.finished && st.runTimeMs === 0);
 await page.getByRole("dialog", { name: "Finished" }).waitFor({ state: "detached" });
 s = await state();
-check("Enter restarts the run", !s.finished && s.runTimeMs === 0 && Math.abs(s.position[2] - -5) < 0.2);
+check("R restarts the run", !s.finished && s.runTimeMs === 0 && Math.abs(s.position[2] - -5) < 0.2);
 check("Timer resets to 0:00.00", (await timerText()) === "0:00.00");
 check("Checkpoints reset", s.checkpoint === 0 && (await page.getByText(`🚩 0/${CHECKPOINTS}`).isVisible()));
 
@@ -152,19 +162,18 @@ const beforeResizeMove = (await state()).position[2];
 check("Controls still work after resizing", await holdUntil("KeyW", (st, z) => st.position[2] > z + 1, beforeResizeMove));
 
 // Leaving and coming back starts cleanly.
-await page.getByRole("button", { name: "Back to VQVB home" }).click();
+await page.getByRole("button", { name: "Back to the World 1 map" }).click();
 await page.locator("canvas").waitFor({ state: "detached" });
-check("Home button leaves the game", (await page.locator("canvas").count()) === 0 && !(await page.evaluate(() => !!window.__KR__)));
+check("Map button leaves the game", (await page.locator("canvas").count()) === 0 && !(await page.evaluate(() => !!window.__KR__)) && (await page.getByRole("heading", { name: "World 1" }).isVisible()));
 await page.goto(ROUTE);
 await waitReady();
 await until((st) => st.grounded);
 check("Returning to the game shows one fresh canvas", (await page.locator("canvas").count()) === 1 && (await state()).runTimeMs === 0);
 check("Controls work after returning", await holdUntil("KeyD", (st) => Math.abs(st.position[0]) > 0.5));
 
-// The V0 address still opens the game.
+// The V0 address still works (opens the map).
 await page.goto(OLD_ROUTE);
-await waitReady();
-check("Old #/play/keyboard-run link still works", (await page.locator("canvas").count()) === 1);
+check("Old #/play/keyboard-run link still works", await page.getByRole("heading", { name: "World 1" }).isVisible());
 
 // Keys don't scroll the page while playing.
 check("Page did not scroll", (await page.evaluate(() => window.scrollY)) === 0);

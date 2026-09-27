@@ -57,6 +57,10 @@ async function run(engineName, launcher, deviceName, extraArgs) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(() => {
     window.__KR_E2E__ = true;
+    // Open all stages; these checks run on Stage 3 (spawn at z = -5).
+    if (!localStorage.getItem("block-dash-progress")) {
+      localStorage.setItem("block-dash-progress", JSON.stringify({ version: 1, wins: 0, unlockedStage: 5, completedStageIds: [], bestTimes: {} }));
+    }
   });
 
   const state = () => page.evaluate(() => window.__KR__.state());
@@ -78,6 +82,7 @@ async function run(engineName, launcher, deviceName, extraArgs) {
 
   await page.goto(BASE);
   await page.getByRole("button", { name: /Block Dash/ }).click();
+  await page.getByRole("button", { name: "Play stage 3" }).tap();
   const loaded = await page.waitForFunction(() => !!window.__KR__, null, { timeout: 60000 }).then(() => true, () => false);
   check(`${label}: game loads`, loaded);
   if (!loaded) {

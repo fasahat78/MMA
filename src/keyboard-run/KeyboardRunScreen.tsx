@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "../analytics/track";
 import { useReducedMotion } from "../hooks/useReducedMotion";
-import { FinishPanel, FullScreenMessage, PausePanel } from "./components/RunOverlays";
+import { FinishPanel, FullScreenMessage, PausePanel, type FinishSummary } from "./components/RunOverlays";
 import { RunHud } from "./components/RunHud";
 import { TouchControls } from "./components/TouchControls";
-import { sandboxStage } from "./data/stages/sandbox";
 import type { EngineHandle, RunBridge } from "./game/bridge";
+import { finishStage } from "./state/progressStore";
+import type { StageDefinition } from "./types/stage";
 
 interface Props {
-  onExit: () => void;
+  stage: StageDefinition;
+  /** The stage after this one, if the world has one. */
+  nextStageId: string | null;
+  onNextStage: (stageId: string) => void;
+  /** Back to the World 1 map. */
+  onMap: () => void;
 }
 
 type Status = "loading" | "ready" | "error";
@@ -28,7 +34,7 @@ function blurActive(): void {
 
 // Block Dash — V0.1 movement sandbox (brief §34; folder keeps its working name). React owns the page around the canvas; the
 // engine owns the 3D world and reports through the RunBridge.
-export function KeyboardRunScreen({ onExit }: Props) {
+export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<EngineHandle | null>(null);
   const reducedMotion = useReducedMotion();
@@ -49,12 +55,12 @@ export function KeyboardRunScreen({ onExit }: Props) {
   const [checkpoint, setCheckpoint] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [fell, setFell] = useState(false);
-  const [finishMs, setFinishMs] = useState<number | null>(null);
-  const [bestMs, setBestMs] = useState<number | null>(null);
-  const [isNewBest, setIsNewBest] = useState(false);
-  const bestRef = useRef<number | null>(null);
+  const [finish, setFinish] = useState<FinishSummary | null>(null);
+  const finishMs = finish?.timeMs ?? null;
+  // The engine starts once per mount (App keys this screen by stage id).
+  const stageRef = useRef(stage);
 
-  const checkpointTotal = sandboxStage.obstacles.filter((o) => o.type === "checkpoint").length;
+  const checkpointTotal = stage.obstacles.filter((o) => o.type === "checkpoint").length;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -75,7 +81,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
       onTick: setTimeMs,
       onRunStart: () => {
         setRunStarted(true);
-        track("block_dash_start", { stage: sandboxStage.id });
+        track("block_dash_start", { stage: stageRef.current.id });
       },
       onSprintUsed: () => setSprintUsed(true),
       onCheckpoint: (index, total) => {
@@ -84,13 +90,18 @@ export function KeyboardRunScreen({ onExit }: Props) {
         later(() => setToast(null), CHECKPOINT_TOAST_MS);
       },
       onFinish: (ms) => {
+        const current = stageRef.current;
         setTimeMs(ms);
-        setFinishMs(ms);
-        const improved = bestRef.current === null || ms < bestRef.current;
-        if (improved) bestRef.current = ms;
-        setBestMs(bestRef.current);
-        setIsNewBest(improved);
-        track("block_dash_finish", { stage: sandboxStage.id, seconds: Math.round(ms / 100) / 10 });
+        const result = finishStage(current, ms);
+        setFinish({
+          timeMs: ms,
+          bestMs: result.progress.bestTimes[current.id] ?? ms,
+          isNewBest: result.isNewBest,
+          winsEarned: result.winsEarned,
+          totalWins: result.progress.wins,
+          unlockedStageNumber: result.unlockedNext ? current.stageNumber + 1 : null,
+        });
+        track("block_dash_finish", { stage: current.id, seconds: Math.round(ms / 100) / 10 });
       },
       onFell: () => {
         setFell(true);
@@ -101,7 +112,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
         setTimeMs(0);
         setRunStarted(false);
         setCheckpoint(0);
-        setFinishMs(null);
+        setFinish(null);
         setToast(null);
         blurActive();
       },
@@ -117,7 +128,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
         const { startEngine } = await import("./game/engine");
         if (cancelled) return;
         engine = await startEngine(container, bridge, {
-          stage: sandboxStage,
+          stage: stageRef.current,
           reducedMotion: reducedMotionRef.current,
           lowPower: lowPowerRef.current,
         });
@@ -165,7 +176,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
       <FullScreenMessage
         title="The game couldn't start"
         body="Your browser may not support 3D graphics (WebGL). Try updating it, or use Chrome, Edge, Firefox or Safari."
-        onExit={onExit}
+        onExit={onMap}
       />
     );
   }
@@ -193,12 +204,13 @@ export function KeyboardRunScreen({ onExit }: Props) {
           timeMs={timeMs}
           checkpoint={checkpoint}
           checkpointTotal={checkpointTotal}
+          stageNumber={stage.stageNumber}
           runStarted={runStarted}
           mouseCaptured={mouseCaptured}
           touchMode={touchMode}
           // Touch has no sprint control (distance = speed), so no hint there.
           showSprintHint={!touchMode && runStarted && !sprintUsed && finishMs === null}
-          onExit={onExit}
+          onExit={onMap}
           onRespawn={respawn}
           onPause={() => engineRef.current?.pause()}
         />
@@ -232,17 +244,18 @@ export function KeyboardRunScreen({ onExit }: Props) {
           touchMode={touchMode}
           onResume={resume}
           onRestart={() => engineRef.current?.restartRun()}
-          onExit={onExit}
+          onExit={onMap}
         />
       )}
 
-      {finishMs !== null && (
+      {finish && (
         <FinishPanel
-          timeMs={finishMs}
-          bestMs={bestMs}
-          isNewBest={isNewBest}
+          stageNumber={stage.stageNumber}
+          summary={finish}
+          hasNextStage={nextStageId !== null}
+          onNext={() => nextStageId && onNextStage(nextStageId)}
           onAgain={() => engineRef.current?.restartRun()}
-          onExit={onExit}
+          onMap={onMap}
         />
       )}
     </div>

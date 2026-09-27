@@ -4,6 +4,7 @@ interface Props {
   timeMs: number;
   checkpoint: number;
   checkpointTotal: number;
+  stageNumber: number;
   runStarted: boolean;
   mouseCaptured: boolean;
   /** Phones/tablets: on-screen controls, so show touch instructions. */
@@ -19,19 +20,19 @@ interface Props {
 const pill = "rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md backdrop-blur";
 
 // Always-on overlay: exit, run clock, checkpoint progress, control hints.
-export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause, onRespawn }: Props) {
+export function RunHud({ timeMs, checkpoint, checkpointTotal, stageNumber, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause, onRespawn }: Props) {
   return (
     <>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           onClick={onExit}
           className={`btn-pop pointer-events-auto min-h-[44px] shrink-0 ${pill}`}
-          aria-label="Back to VQVB home"
+          aria-label="Back to the World 1 map"
         >
-          ← Home
+          ← Map
         </button>
 
-        <div className="flex min-w-0 flex-1 justify-center">
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
           <div
             className="rounded-2xl bg-slate-900/80 px-5 py-2 font-mono text-2xl font-bold tabular-nums text-white shadow-lg"
             role="timer"
@@ -39,6 +40,7 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
           >
             {formatRunTime(timeMs)}
           </div>
+          <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-extrabold text-indigo-700 shadow">World 1 · Stage {stageNumber}</span>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">

@@ -34,7 +34,7 @@ export function PausePanel({
         ↺ Restart run
       </Button>
       <Button variant="ghost" onClick={onExit}>
-        Exit to home
+        🗺️ World map
       </Button>
       <div className="text-left">
         <ControlsCard touchMode={touchMode} />
@@ -43,36 +43,62 @@ export function PausePanel({
   );
 }
 
-export function FinishPanel({
-  timeMs,
-  bestMs,
-  isNewBest,
-  onAgain,
-  onExit,
-}: {
+export interface FinishSummary {
   timeMs: number;
-  bestMs: number | null;
+  bestMs: number;
   isNewBest: boolean;
+  winsEarned: number;
+  totalWins: number;
+  /** The stage just opened for the first time, if any. */
+  unlockedStageNumber: number | null;
+}
+
+export function FinishPanel({
+  stageNumber,
+  summary,
+  hasNextStage,
+  onNext,
+  onAgain,
+  onMap,
+}: {
+  stageNumber: number;
+  summary: FinishSummary;
+  hasNextStage: boolean;
+  onNext: () => void;
   onAgain: () => void;
-  onExit: () => void;
+  onMap: () => void;
 }) {
+  const { timeMs, bestMs, isNewBest, winsEarned, totalWins, unlockedStageNumber } = summary;
   return (
     <Panel label="Finished">
       <p className="text-5xl" aria-hidden>
         🏁
       </p>
-      <h2 className="text-3xl font-extrabold text-fuchsia-700">You made it!</h2>
+      <h2 className="text-3xl font-extrabold text-fuchsia-700">Stage {stageNumber} done!</h2>
       <p className="font-mono text-4xl font-bold tabular-nums text-slate-800">{formatRunTime(timeMs)}</p>
       {isNewBest ? (
         <p className="font-extrabold text-emerald-600">⭐ New best time!</p>
       ) : (
-        bestMs !== null && <p className="font-bold text-slate-500">Best: {formatRunTime(bestMs)}</p>
+        <p className="font-bold text-slate-500">Best: {formatRunTime(bestMs)}</p>
       )}
-      <Button variant="success" onClick={onAgain} autoFocus>
-        ↺ Run again <span className="text-sm opacity-80">(Enter)</span>
+      <p className="rounded-2xl bg-amber-100 px-4 py-2 text-lg font-black text-amber-900">
+        🏆 +{winsEarned} {winsEarned === 1 ? "Win" : "Wins"} <span className="text-sm font-bold text-amber-700">· {totalWins} total</span>
+      </p>
+      {unlockedStageNumber !== null && hasNextStage && (
+        <p className="font-extrabold text-indigo-600">🔓 Stage {unlockedStageNumber} is open!</p>
+      )}
+      {hasNextStage ? (
+        <Button variant="success" onClick={onNext} autoFocus>
+          Next stage ▶ <span className="text-sm opacity-80">(Enter)</span>
+        </Button>
+      ) : (
+        <p className="font-extrabold text-fuchsia-600">🎉 You finished World 1!</p>
+      )}
+      <Button variant={hasNextStage ? "secondary" : "success"} onClick={onAgain} autoFocus={!hasNextStage}>
+        ↺ Run again <span className="text-sm opacity-80">({hasNextStage ? "R" : "Enter"})</span>
       </Button>
-      <Button variant="ghost" onClick={onExit}>
-        Exit to home
+      <Button variant="ghost" onClick={onMap}>
+        🗺️ World map
       </Button>
     </Panel>
   );

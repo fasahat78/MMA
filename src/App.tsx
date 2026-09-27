@@ -5,6 +5,10 @@ import { useHashRoute } from "./router/useHashRoute";
 import { HubScreen } from "./screens/HubScreen";
 import { GameApp } from "./GameApp";
 import { KeyboardRunScreen } from "./keyboard-run/KeyboardRunScreen";
+import { StageMapScreen } from "./keyboard-run/components/StageMapScreen";
+import { findStage, world1 } from "./keyboard-run/data/stages/world1";
+import { isStageUnlocked } from "./keyboard-run/state/progress";
+import { getBlockDashProgress } from "./keyboard-run/state/progressStore";
 import { StoriesHomeScreen } from "./stories/StoriesHomeScreen";
 import { StoryReaderScreen } from "./stories/StoryReaderScreen";
 
@@ -30,9 +34,26 @@ export default function App() {
     setMusicTrack(musicTrackId);
   }, [musicTrackId]);
 
-  // Block Dash (3D, keyboard-first). The V0 address still works.
+  // Block Dash: #/play/block-dash is the World 1 map, #/play/block-dash/stage/<id>
+  // a stage. The V0 address (#/play/keyboard-run) opens the map.
   if (path.startsWith("/play/block-dash") || path.startsWith("/play/keyboard-run")) {
-    return <KeyboardRunScreen onExit={() => navigate("/")} />;
+    const stageId = path.match(/^\/play\/block-dash\/stage\/([\w-]+)$/)?.[1];
+    const stage = stageId ? findStage(stageId) : undefined;
+    // Unknown or still-locked stages fall back to the map.
+    if (stage && isStageUnlocked(getBlockDashProgress(), stage)) {
+      const index = world1.stages.indexOf(stage);
+      const next = world1.stages[index + 1] ?? null;
+      return (
+        <KeyboardRunScreen
+          key={stage.id}
+          stage={stage}
+          nextStageId={next?.id ?? null}
+          onNextStage={(id) => navigate(`/play/block-dash/stage/${id}`)}
+          onMap={() => navigate("/play/block-dash")}
+        />
+      );
+    }
+    return <StageMapScreen onPlay={(id) => navigate(`/play/block-dash/stage/${id}`)} onExit={() => navigate("/")} />;
   }
 
   if (path.startsWith("/game")) {
