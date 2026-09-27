@@ -21,6 +21,8 @@ const ESC_UNLOCK_GRACE_MS = 300;
 export interface EngineOptions {
   stage: StageDefinition;
   reducedMotion: boolean;
+  /** Phones/tablets: lighter shadows and resolution to keep the frame rate up. */
+  lowPower: boolean;
 }
 
 /** Test-only seam, inert unless `window.__KR_E2E__` is set before load. */
@@ -52,7 +54,7 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
   await Promise.all([rapierReady, document.fonts?.load(FONT_PROBE).catch(() => undefined)]);
 
   const sim = new Simulation(RAPIER, options.stage);
-  const world = new RenderWorld(container);
+  const world = new RenderWorld(container, options.lowPower);
   const stageView = new StageView(sim.parts, options.reducedMotion);
   const character = new BlockCharacter();
   world.scene.add(stageView.group, character.root);
@@ -83,12 +85,14 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
     setPaused(false);
   }
 
+  function respawn(): void {
+    if (paused) return;
+    if (sim.finished) restartRun();
+    else sim.respawnNow();
+  }
+
   const input = new InputController(world.renderer.domElement, {
-    onRespawn: () => {
-      if (paused) return;
-      if (sim.finished) restartRun();
-      else sim.respawnNow();
-    },
+    onRespawn: respawn,
     onEscape: () => {
       // While the mouse is captured, the browser uses Esc to release it and
       // `onPointerLockChange` pauses. Some browsers also deliver the keydown;
@@ -231,6 +235,13 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
     setReducedMotion: (reduced) => {
       stageView.reducedMotion = reduced;
     },
+    setTouchMove: (x, z) => {
+      if (!paused) input.setTouchMove(x, z);
+    },
+    setTouchJump: (down) => {
+      if (!paused || !down) input.setTouchJump(down);
+    },
+    respawn,
     dispose: () => {
       cancelAnimationFrame(rafId);
       observer.disconnect();

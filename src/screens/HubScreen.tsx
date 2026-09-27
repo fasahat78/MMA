@@ -50,7 +50,7 @@ export function HubScreen({ onPlayGame, onOpenStories, onPlayBlockDash }: Props)
             </span>
             <span className="mt-4 text-2xl font-black text-indigo-700">Block Dash</span>
             <span className="mt-1 font-bold text-slate-500">
-              Run, sprint and jump across giant keys. Needs a keyboard!
+              Run, sprint and jump across giant keys. Keyboard or touch!
             </span>
             <span className="mt-4 rounded-full bg-indigo-600 px-6 py-2 font-extrabold text-white">
               ▶ Run

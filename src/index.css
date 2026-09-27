@@ -77,3 +77,11 @@ body {
     transition: none !important;
   }
 }
+
+/* Block Dash touch controls: no iOS long-press menu or text selection on thumbs. */
+.kr-touch,
+.kr-touch * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

@@ -23,5 +23,10 @@ export interface EngineHandle {
   /** Captures the mouse for camera control. Call from a click handler. */
   captureMouse: () => void;
   setReducedMotion: (reduced: boolean) => void;
+  /** On-screen joystick: x right, z forward, −1…1. Full push also sprints. */
+  setTouchMove: (x: number, z: number) => void;
+  setTouchJump: (down: boolean) => void;
+  /** Same as the R key: back to the last checkpoint (or restart after finishing). */
+  respawn: () => void;
   dispose: () => void;
 }

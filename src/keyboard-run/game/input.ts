@@ -1,8 +1,12 @@
 import { cameraConfig } from "../data/movement";
 import type { SimInput } from "./sim/playerMotion";
 
-// Keyboard + mouse (brief §4). Tracks held keys, turns mouse movement into
-// camera yaw/pitch while the pointer is locked, and reports Esc / R / Enter.
+// Keyboard + mouse (brief §4) and on-screen touch controls. Tracks held keys,
+// turns mouse movement into camera yaw/pitch while the pointer is locked,
+// reports Esc / R / Enter, and merges in the touch joystick and jump button.
+
+/** Pushing the touch stick this far out (0–1) also sprints. */
+export const TOUCH_SPRINT_THRESHOLD = 0.92;
 
 const FORWARD = ["KeyW", "ArrowUp"];
 const BACK = ["KeyS", "ArrowDown"];
@@ -25,6 +29,9 @@ export class InputController {
   pitch: number = cameraConfig.defaultPitch;
   private readonly held = new Set<string>();
   private jumpQueued = false;
+  private touchX = 0;
+  private touchZ = 0;
+  private touchJumpHeld = false;
   private readonly canvas: HTMLCanvasElement;
   private readonly callbacks: InputCallbacks;
   private readonly abort = new AbortController();
@@ -64,14 +71,30 @@ export class InputController {
     const axis = (pos: string[], neg: string[]) => (this.any(pos) ? 1 : 0) - (this.any(neg) ? 1 : 0);
     const jumpPressed = this.jumpQueued;
     this.jumpQueued = false;
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    const touchSprint = Math.hypot(this.touchX, this.touchZ) >= TOUCH_SPRINT_THRESHOLD;
     return {
-      moveX: axis(RIGHT, LEFT),
-      moveZ: axis(FORWARD, BACK),
+      moveX: clamp(axis(RIGHT, LEFT) + this.touchX),
+      moveZ: clamp(axis(FORWARD, BACK) + this.touchZ),
       yaw: this.yaw,
-      sprint: this.any(SPRINT),
+      sprint: this.any(SPRINT) || touchSprint,
       jumpPressed,
-      jumpHeld: this.any(JUMP),
+      jumpHeld: this.any(JUMP) || this.touchJumpHeld,
     };
+  }
+
+  /** Joystick position: x right, z forward, each −1…1 (length ≤ 1). */
+  setTouchMove(x: number, z: number): void {
+    const len = Math.hypot(x, z);
+    const scale = len > 1 ? 1 / len : 1;
+    this.touchX = x * scale;
+    this.touchZ = z * scale;
+  }
+
+  /** Jump button down/up. Down queues a jump, holding keeps it high. */
+  setTouchJump(down: boolean): void {
+    if (down && !this.touchJumpHeld) this.jumpQueued = true;
+    this.touchJumpHeld = down;
   }
 
   resetCamera(): void {
@@ -82,6 +105,9 @@ export class InputController {
   releaseAll = (): void => {
     this.held.clear();
     this.jumpQueued = false;
+    this.touchX = 0;
+    this.touchZ = 0;
+    this.touchJumpHeld = false;
   };
 
   dispose(): void {

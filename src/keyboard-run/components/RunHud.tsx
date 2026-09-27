@@ -6,6 +6,8 @@ interface Props {
   checkpointTotal: number;
   runStarted: boolean;
   mouseCaptured: boolean;
+  /** Phones/tablets: on-screen controls, so show touch instructions. */
+  touchMode: boolean;
   /** Show the "hold Shift" nudge (V0 play-test: sprint was never found). */
   showSprintHint: boolean;
   onExit: () => void;
@@ -15,7 +17,7 @@ interface Props {
 const pill = "rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md backdrop-blur";
 
 // Always-on overlay: exit, run clock, checkpoint progress, control hints.
-export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, showSprintHint, onExit, onPause }: Props) {
+export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause }: Props) {
   return (
     <>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -51,25 +53,40 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
         </div>
       </header>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)]">
-        {runStarted ? (
-          <div className="rounded-2xl bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-600 shadow backdrop-blur">
-            R respawn · Esc pause
+      {touchMode ? (
+        !runStarted && (
+          <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center px-3">
+            <ControlsCard touchMode />
           </div>
-        ) : (
-          <ControlsCard />
-        )}
-      </div>
+        )
+      ) : (
+        <div className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)]">
+          {runStarted ? (
+            <div className="rounded-2xl bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-600 shadow backdrop-blur">
+              R respawn · Esc pause
+            </div>
+          ) : (
+            <ControlsCard touchMode={false} />
+          )}
+        </div>
+      )}
 
       {showSprintHint && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center">
-          <div className="animate-pulse rounded-full bg-amber-300 px-5 py-2 text-lg font-extrabold text-amber-950 shadow-lg motion-reduce:animate-none">
-            ⚡ Hold <kbd className="rounded-md bg-white px-2 py-0.5 font-mono text-base ring-1 ring-amber-500">SHIFT</kbd> to sprint!
+        // On touch screens the hint sits up top, away from the thumbs.
+        <div className={`pointer-events-none absolute inset-x-0 flex justify-center px-3 ${touchMode ? "top-20" : "bottom-16"}`}>
+          <div className="animate-pulse rounded-full bg-amber-300 px-5 py-2 text-center text-lg font-extrabold text-amber-950 shadow-lg motion-reduce:animate-none">
+            {touchMode ? (
+              <>⚡ Push the stick all the way to sprint!</>
+            ) : (
+              <>
+                ⚡ Hold <kbd className="rounded-md bg-white px-2 py-0.5 font-mono text-base ring-1 ring-amber-500">SHIFT</kbd> to sprint!
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {!mouseCaptured && runStarted && (
+      {!touchMode && !mouseCaptured && runStarted && (
         <div className="pointer-events-none absolute bottom-3 right-3 rounded-2xl bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-600 shadow backdrop-blur">
           🖱 Click the game to look around
         </div>
@@ -78,7 +95,7 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
   );
 }
 
-const CONTROLS: Array<[string, string]> = [
+const KEYBOARD_CONTROLS: Array<[string, string]> = [
   ["W A S D / ← ↑ → ↓", "Move"],
   ["Shift", "Sprint"],
   ["Space", "Jump (hold for higher)"],
@@ -87,12 +104,20 @@ const CONTROLS: Array<[string, string]> = [
   ["Esc", "Pause"],
 ];
 
-export function ControlsCard() {
+const TOUCH_CONTROLS: Array<[string, string]> = [
+  ["🕹️ Stick", "Move — push it all the way to sprint"],
+  ["JUMP", "Jump (hold for higher)"],
+  ["↺", "Back to last checkpoint"],
+  ["⏸", "Pause"],
+];
+
+export function ControlsCard({ touchMode }: { touchMode: boolean }) {
+  const controls = touchMode ? TOUCH_CONTROLS : KEYBOARD_CONTROLS;
   return (
     <div className="rounded-3xl bg-white/90 p-4 text-sm text-slate-700 shadow-xl backdrop-blur">
       <p className="mb-2 font-extrabold text-fuchsia-700">Get to the FINISH flag as fast as you can!</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        {CONTROLS.map(([key, action]) => (
+        {controls.map(([key, action]) => (
           <div key={key} className="contents">
             <dt>
               <kbd className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-800 ring-1 ring-slate-300">

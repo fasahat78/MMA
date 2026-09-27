@@ -4,6 +4,8 @@ import { palette } from "./palette";
 // Renderer, sky, lights and the floating-keycap backdrop.
 
 const SHADOW_EXTENT = 22;
+const SHADOW_MAP = { normal: 2048, lowPower: 1024 };
+const MAX_PIXEL_RATIO = { normal: 2, lowPower: 1.5 };
 const BACKDROP_COUNT = 90;
 
 export class RenderWorld {
@@ -12,9 +14,10 @@ export class RenderWorld {
   private readonly sun: THREE.DirectionalLight;
   private readonly backdrop: THREE.InstancedMesh;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, lowPower = false) {
+    const tier = lowPower ? "lowPower" : "normal";
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO[tier]));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.style.display = "block";
@@ -27,7 +30,7 @@ export class RenderWorld {
     this.scene.add(new THREE.HemisphereLight(palette.sky, palette.hemiGround, 1.6));
     this.sun = new THREE.DirectionalLight("#ffffff", 2.2);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(SHADOW_MAP[tier], SHADOW_MAP[tier]);
     const cam = this.sun.shadow.camera;
     cam.left = -SHADOW_EXTENT;
     cam.right = SHADOW_EXTENT;

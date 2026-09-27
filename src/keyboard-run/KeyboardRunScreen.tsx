@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "../analytics/track";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import { FinishPanel, FullScreenMessage, PausePanel } from "./components/RunOverlays";
 import { RunHud } from "./components/RunHud";
+import { TouchControls } from "./components/TouchControls";
 import { sandboxStage } from "./data/stages/sandbox";
 import type { EngineHandle, RunBridge } from "./game/bridge";
 
@@ -15,9 +16,9 @@ type Status = "loading" | "ready" | "error";
 const FELL_FLASH_MS = 700;
 const CHECKPOINT_TOAST_MS = 1600;
 
-/** Keyboard-first game: phones and tablets get a friendly message instead. */
-function isTouchOnly(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+/** Phones and tablets (a finger is the main pointer) start with touch controls. */
+function prefersTouch(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 }
 
 /** Drop focus from overlay buttons so Space/Enter go to the game, not a button. */
@@ -34,7 +35,10 @@ export function KeyboardRunScreen({ onExit }: Props) {
   // Read once at start; later changes are pushed into the running engine.
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
-  const [touchOnly] = useState(isTouchOnly);
+  // Touch controls show on phones/tablets, and appear on any device the
+  // moment the screen is touched (e.g. a touchscreen laptop).
+  const [touchMode, setTouchMode] = useState(prefersTouch);
+  const lowPowerRef = useRef(touchMode);
 
   const [status, setStatus] = useState<Status>("loading");
   const [paused, setPaused] = useState(false);
@@ -54,7 +58,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || touchOnly) return;
+    if (!container) return;
 
     let cancelled = false;
     let engine: EngineHandle | null = null;
@@ -112,7 +116,11 @@ export function KeyboardRunScreen({ onExit }: Props) {
       try {
         const { startEngine } = await import("./game/engine");
         if (cancelled) return;
-        engine = await startEngine(container, bridge, { stage: sandboxStage, reducedMotion: reducedMotionRef.current });
+        engine = await startEngine(container, bridge, {
+          stage: sandboxStage,
+          reducedMotion: reducedMotionRef.current,
+          lowPower: lowPowerRef.current,
+        });
         if (cancelled) {
           engine.dispose();
           return;
@@ -133,21 +141,23 @@ export function KeyboardRunScreen({ onExit }: Props) {
       engine?.dispose();
       engineRef.current = null;
     };
-  }, [touchOnly]);
+  }, []);
 
   useEffect(() => {
     engineRef.current?.setReducedMotion(reducedMotion);
   }, [reducedMotion]);
 
-  if (touchOnly) {
-    return (
-      <FullScreenMessage
-        title="Keyboard needed!"
-        body="This game is played with a keyboard. Open VQVB on a laptop or desktop computer to run the course."
-        onExit={onExit}
-      />
-    );
-  }
+  useEffect(() => {
+    if (touchMode) return;
+    const onTouch = () => setTouchMode(true);
+    window.addEventListener("touchstart", onTouch, { once: true, passive: true });
+    return () => window.removeEventListener("touchstart", onTouch);
+  }, [touchMode]);
+
+  // Stable so TouchControls' cleanup only runs when it unmounts.
+  const touchMove = useCallback((x: number, z: number) => engineRef.current?.setTouchMove(x, z), []);
+  const touchJump = useCallback((down: boolean) => engineRef.current?.setTouchJump(down), []);
+  const respawn = useCallback(() => engineRef.current?.respawn(), []);
 
   if (status === "error") {
     return (
@@ -170,8 +180,12 @@ export function KeyboardRunScreen({ onExit }: Props) {
         ref={containerRef}
         className="absolute inset-0 outline-none"
         tabIndex={-1}
-        aria-label="Block Dash game. Use W A S D to move, Space to jump, Shift to sprint."
+        aria-label="Block Dash game. Use W A S D or the on-screen stick to move, Space or the JUMP button to jump, Shift to sprint."
       />
+
+      {status === "ready" && touchMode && !paused && finishMs === null && (
+        <TouchControls onMove={touchMove} onJump={touchJump} onRespawn={respawn} />
+      )}
 
       {status === "ready" && (
         <RunHud
@@ -180,6 +194,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
           checkpointTotal={checkpointTotal}
           runStarted={runStarted}
           mouseCaptured={mouseCaptured}
+          touchMode={touchMode}
           showSprintHint={runStarted && !sprintUsed && finishMs === null}
           onExit={onExit}
           onPause={() => engineRef.current?.pause()}
@@ -210,7 +225,12 @@ export function KeyboardRunScreen({ onExit }: Props) {
       )}
 
       {paused && finishMs === null && (
-        <PausePanel onResume={resume} onRestart={() => engineRef.current?.restartRun()} onExit={onExit} />
+        <PausePanel
+          touchMode={touchMode}
+          onResume={resume}
+          onRestart={() => engineRef.current?.restartRun()}
+          onExit={onExit}
+        />
       )}
 
       {finishMs !== null && (

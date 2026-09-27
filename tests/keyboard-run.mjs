@@ -169,11 +169,7 @@ check("Old #/play/keyboard-run link still works", (await page.locator("canvas").
 // Keys don't scroll the page while playing.
 check("Page did not scroll", (await page.evaluate(() => window.scrollY)) === 0);
 
-// Touch-only devices get a friendly message instead of the game.
-const phone = await browser.newPage({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
-await phone.goto(ROUTE);
-check("Phones see the 'Keyboard needed' message", await phone.getByText("Keyboard needed!").isVisible());
-check("Phones do not load the 3D engine", (await phone.locator("canvas").count()) === 0);
+// Phones and tablets: see tests/block-dash-touch.mjs.
 
 check("No console errors", errors.length === 0, errors.join(" | "));
 

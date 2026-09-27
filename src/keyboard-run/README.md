@@ -21,6 +21,16 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
 - **Fairer falling keys:** a 0.75 s warning with a red glow, and a checkpoint just before them.
 - **Renamed** to Block Dash.
 
+## Phones and tablets
+
+On touch screens (iPad, iPhone) the game shows thumb controls:
+- a joystick on the left (push it all the way out to sprint);
+- a JUMP button on the right (hold it for a higher jump);
+- a ↺ respawn button.
+
+Graphics drop to a lighter level on these devices (1024 shadow map, pixel ratio capped at 1.5).
+`npm run test:block-dash-touch` emulates an iPhone and an iPad in WebKit and Chromium.
+
 ## Tuning
 
 Almost every number that affects game feel lives in data, not in code:

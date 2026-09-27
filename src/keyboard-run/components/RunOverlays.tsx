@@ -5,7 +5,7 @@ import { ControlsCard } from "./RunHud";
 
 function Panel({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="absolute inset-0 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm" role="dialog" aria-label={label}>
+    <div className="absolute inset-0 grid place-items-center overflow-y-auto bg-slate-900/45 p-4 backdrop-blur-sm" role="dialog" aria-label={label}>
       <div className="flex w-full max-w-sm flex-col items-stretch gap-3 rounded-[2rem] bg-white p-6 text-center shadow-2xl">
         {children}
       </div>
@@ -13,7 +13,17 @@ function Panel({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function PausePanel({ onResume, onRestart, onExit }: { onResume: () => void; onRestart: () => void; onExit: () => void }) {
+export function PausePanel({
+  touchMode,
+  onResume,
+  onRestart,
+  onExit,
+}: {
+  touchMode: boolean;
+  onResume: () => void;
+  onRestart: () => void;
+  onExit: () => void;
+}) {
   return (
     <Panel label="Paused">
       <h2 className="text-3xl font-extrabold text-fuchsia-700">Paused</h2>
@@ -27,7 +37,7 @@ export function PausePanel({ onResume, onRestart, onExit }: { onResume: () => vo
         Exit to home
       </Button>
       <div className="text-left">
-        <ControlsCard />
+        <ControlsCard touchMode={touchMode} />
       </div>
     </Panel>
   );
