@@ -35,6 +35,15 @@ npm run test:win     # headless Playwright: solves the first maze end-to-end and
                      # verifies Win screen, gems earned, save, next-map unlock
 ```
 
+Keyboard Run (the 3D game at `#/play/keyboard-run`) has its own suites:
+
+```bash
+npm run test:keyboard-run-sim  # physics + rules in Node (no browser)
+npm run test:keyboard-run      # headless Playwright: the V0 definition-of-done checklist
+```
+
+See [src/keyboard-run/README.md](./src/keyboard-run/README.md) for tuning and architecture.
+
 The Playwright tests expect a server on `http://localhost:4317` (run
 `npm run preview -- --port 4317` first), or set `BASE_URL`.
 

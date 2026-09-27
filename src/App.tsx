@@ -4,6 +4,7 @@ import { attachAutoStart, setMusicEnabled, setMusicTrack, setSoundEnabled } from
 import { useHashRoute } from "./router/useHashRoute";
 import { HubScreen } from "./screens/HubScreen";
 import { GameApp } from "./GameApp";
+import { KeyboardRunScreen } from "./keyboard-run/KeyboardRunScreen";
 import { StoriesHomeScreen } from "./stories/StoriesHomeScreen";
 import { StoryReaderScreen } from "./stories/StoryReaderScreen";
 
@@ -28,6 +29,11 @@ export default function App() {
   useEffect(() => {
     setMusicTrack(musicTrackId);
   }, [musicTrackId]);
+
+  // Keyboard Run V0 — unlisted on the hub until it has been play-tested.
+  if (path.startsWith("/play/keyboard-run")) {
+    return <KeyboardRunScreen onExit={() => navigate("/")} />;
+  }
 
   if (path.startsWith("/game")) {
     return <GameApp onExitToHub={() => navigate("/")} />;

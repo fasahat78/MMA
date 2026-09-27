@@ -1,0 +1,126 @@
+import type { KeyLabel } from "../data/keyboardMessages";
+
+// Stage schema. Stages are data (brief §26): a list of obstacle definitions
+// that `game/stageLayout.ts` expands into physics + render parts. Coordinates
+// are metres, Y up; the course runs along +Z.
+
+export type Vec3 = readonly [number, number, number];
+
+interface BoxObstacle {
+  id: string;
+  /** Centre of the box. */
+  position: Vec3;
+  /** Full extents (width, height, depth). */
+  size: Vec3;
+}
+
+/** A plain solid surface: roads, landings, decks. */
+export interface PlatformDef extends BoxObstacle {
+  type: "platform";
+  style: "road" | "landing" | "deck";
+}
+
+/** A narrow walkway across a drop. */
+export interface BridgeDef extends BoxObstacle {
+  type: "bridge";
+}
+
+/** A grid of giant keycaps; each row steps up by `stepUp`. */
+export interface KeyboardRunDef {
+  type: "keyboard-run";
+  id: string;
+  /** x = centre of the grid, y = surface height the first row steps up from, z = front edge. */
+  origin: Vec3;
+  columns: number;
+  rows: number;
+  keySize: number;
+  keyHeight: number;
+  gap: number;
+  stepUp: number;
+  /** Row-major, front row first. Content-controlled (brief §15). */
+  labels: readonly KeyLabel[];
+}
+
+/** Ping-pongs along one axis, pausing at each end. */
+export interface MovingPlatformDef extends BoxObstacle {
+  type: "moving-platform";
+  axis: "x" | "z";
+  distance: number;
+  speed: number;
+  pauseSec: number;
+}
+
+/** A moving platform that travels straight up and back down. */
+export interface LiftDef extends BoxObstacle {
+  type: "lift";
+  height: number;
+  speed: number;
+  pauseSec: number;
+}
+
+/** A belt that carries whoever stands on it at `beltVelocity`. */
+export interface TreadmillDef extends BoxObstacle {
+  type: "treadmill";
+  beltVelocity: Vec3;
+}
+
+/** A flat pad; standing on it multiplies top speed for a while. */
+export interface SpeedPadDef extends BoxObstacle {
+  type: "speed-pad";
+  boost: number;
+  durationSec: number;
+}
+
+/** A row of keycaps that drop shortly after being stood on, then reset. */
+export interface FallingKeysDef {
+  type: "falling-keys";
+  id: string;
+  /** x = centre, y = top surface, z = front edge. */
+  origin: Vec3;
+  count: number;
+  keyWidth: number;
+  keyDepth: number;
+  keyHeight: number;
+  gap: number;
+  fallDelaySec: number;
+  resetDelaySec: number;
+  labels: readonly KeyLabel[];
+}
+
+/** Trigger zones. `position` is the zone centre; its floor is the respawn height. */
+export interface CheckpointDef extends BoxObstacle {
+  type: "checkpoint";
+}
+
+export interface FinishDef extends BoxObstacle {
+  type: "finish";
+}
+
+export type ObstacleDef =
+  | PlatformDef
+  | BridgeDef
+  | KeyboardRunDef
+  | MovingPlatformDef
+  | LiftDef
+  | TreadmillDef
+  | SpeedPadDef
+  | FallingKeysDef
+  | CheckpointDef
+  | FinishDef;
+
+export type ObstacleType = ObstacleDef["type"];
+
+// Mirrors the brief's StageDefinition (§10); progression fields are unused in V0.
+export interface StageDefinition {
+  id: string;
+  worldId: string;
+  stageNumber: number;
+  recommendedLevel: number;
+  winReward: number;
+  stageType: "standard" | "maze-boss";
+  /** Feet position at the start of a run. */
+  spawn: Vec3;
+  /** Falling below this height respawns the player. */
+  killPlaneY: number;
+  obstacles: readonly ObstacleDef[];
+}
