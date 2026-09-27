@@ -5,10 +5,14 @@ import { defaultProgress, migrateProgress, recordFinish, type BlockDashProgress,
 // Saves Block Dash progress on this device (same approach as Maze Mates'
 // progressStore: localStorage, versioned, immutable updates). No accounts,
 // no server — brief §27/§30.
+//
+// Other tabs of the site can finish stages too, so the saved copy is re-read
+// when another tab writes it and whenever this page comes back into view —
+// otherwise a map left open in one tab keeps showing stages as locked.
 
 export const SAVE_KEY = "block-dash-progress";
 
-function load(): BlockDashProgress {
+function read(): BlockDashProgress {
   try {
     const stored = localStorage.getItem(SAVE_KEY);
     return stored ? migrateProgress(JSON.parse(stored)) : { ...defaultProgress };
@@ -17,15 +21,68 @@ function load(): BlockDashProgress {
   }
 }
 
-let state = load();
+/** Can this browser keep progress? (Not in some private modes or with site data blocked.) */
+function probeStorage(): boolean {
+  try {
+    const probe = `${SAVE_KEY}-probe`;
+    localStorage.setItem(probe, "1");
+    localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let state = read();
+let savingWorks = typeof window !== "undefined" && probeStorage();
 const listeners = new Set<() => void>();
+
+function emit(): void {
+  listeners.forEach((l) => l());
+}
 
 function persist(): void {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    savingWorks = true;
   } catch {
     // Private mode or full storage: progress still works for this visit.
+    savingWorks = false;
   }
+}
+
+/**
+ * Combines this tab's progress with the saved copy, keeping the best of both
+ * (Wins can only grow until there is something to spend them on).
+ */
+function merge(a: BlockDashProgress, b: BlockDashProgress): BlockDashProgress {
+  const bestTimes = { ...a.bestTimes };
+  for (const [id, ms] of Object.entries(b.bestTimes)) bestTimes[id] = Math.min(bestTimes[id] ?? Infinity, ms);
+  return {
+    version: a.version,
+    wins: Math.max(a.wins, b.wins),
+    unlockedStage: Math.max(a.unlockedStage, b.unlockedStage),
+    completedStageIds: [...new Set([...a.completedStageIds, ...b.completedStageIds])],
+    bestTimes,
+  };
+}
+
+/** Picks up progress saved by another tab, without losing this tab's own. */
+function refreshFromStorage(): void {
+  const merged = merge(state, read());
+  if (JSON.stringify(merged) === JSON.stringify(state)) return;
+  state = merged;
+  emit();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === SAVE_KEY || e.key === null) refreshFromStorage();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshFromStorage();
+  });
+  window.addEventListener("pageshow", refreshFromStorage);
 }
 
 function subscribe(listener: () => void) {
@@ -40,13 +97,20 @@ export function useBlockDashProgress(): BlockDashProgress {
 }
 
 export function getBlockDashProgress(): BlockDashProgress {
+  refreshFromStorage();
   return state;
 }
 
+/** False when the browser won't let the site save (progress lasts only this visit). */
+export function canSaveProgress(): boolean {
+  return savingWorks;
+}
+
 export function finishStage(stage: StageDefinition, timeMs: number): FinishResult {
+  refreshFromStorage();
   const result = recordFinish(state, stage, timeMs);
   state = result.progress;
   persist();
-  listeners.forEach((l) => l());
+  emit();
   return result;
 }

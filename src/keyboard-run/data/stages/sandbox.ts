@@ -141,6 +141,7 @@ export const sandboxStage: StageDefinition = {
       stepUp: 0,
       labels: ["ENTER"],
     },
-    { type: "finish", id: "finish", position: [0, 12.5, 142.5], size: [7, 5, 1.5] },
+    // The whole ENTER key counts as the finish line.
+    { type: "finish", id: "finish", position: [0, 12.5, 142.3], size: [7, 5, 7] },
   ],
 };

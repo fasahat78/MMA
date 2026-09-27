@@ -213,11 +213,13 @@ export class StageView {
   private addFinish(part: Part): void {
     const floor = part.center[1] - part.size[1] / 2;
     const halfWidth = part.size[0] / 2;
+    // The arch stands at the front of the finish zone, where finishing happens.
+    const archZ = part.center[2] - part.size[2] / 2 + 0.3;
     const postGeo = new THREE.BoxGeometry(0.4, 4.4, 0.4);
     const postMat = mat(palette.finishPost);
     for (const sx of [-1, 1]) {
       const post = new THREE.Mesh(postGeo, postMat);
-      post.position.set(part.center[0] + sx * halfWidth, floor + 2.2, part.center[2]);
+      post.position.set(part.center[0] + sx * halfWidth, floor + 2.2, archZ);
       post.castShadow = true;
       this.group.add(post);
     }
@@ -226,7 +228,7 @@ export class StageView {
       new THREE.MeshStandardMaterial({ map: finishBannerTexture(), side: THREE.DoubleSide, roughness: 0.6 }),
     );
     banner.rotation.y = Math.PI; // readable from the approach side (-Z)
-    banner.position.set(part.center[0], floor + 4.4 - part.size[0] / 8, part.center[2]);
+    banner.position.set(part.center[0], floor + 4.4 - part.size[0] / 8, archZ);
     this.group.add(banner);
   }
 }

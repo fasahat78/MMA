@@ -15,10 +15,12 @@ function check(name, ok, detail = "") {
 }
 
 const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// One context = one "device": tabs in it share saved progress.
+const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const page = await context.newPage();
 page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-await page.addInitScript(() => {
+await context.addInitScript(() => {
   window.__KR_E2E__ = true;
 });
 
@@ -53,7 +55,7 @@ await page.waitForFunction(() => window.__KR__.state().runTimeMs > 0, null, { ti
 await page.evaluate((f) => window.__KR__.teleport(f), [fin.position[0], floor, fin.position[2] - 2.5]);
 await page.waitForFunction(() => window.__KR__.state().finished, null, { timeout: 30000 });
 await page.keyboard.up("KeyW");
-check("Finish panel shows Stage 1 done", await page.getByRole("dialog", { name: "Finished" }).getByText("Stage 1 done!").isVisible());
+check("Finish panel shows Stage 1 done", await shows(page.getByRole("dialog", { name: "Finished" }).getByText("Stage 1 done!")));
 check("Finishing Stage 1 pays 1 Win", await page.getByText("+1 Win").isVisible());
 check("Finish announces Stage 2 is open", await page.getByText("Stage 2 is open!").isVisible());
 
@@ -72,6 +74,29 @@ check("Stage 2 is open, 3 still locked", (await page.getByRole("button", { name:
 // Progress survives a reload.
 await page.reload();
 check("Progress is saved after reloading", (await shows(winsBadge(1))) && (await page.getByRole("button", { name: "Play stage 2" }).isEnabled()));
+
+// Bug fix: a map left open in another tab updates when a stage is finished
+// elsewhere (Zoya: "finished stage 1 but 2 is still locked").
+const otherTab = await context.newPage();
+await otherTab.goto(BASE + "#/play/block-dash");
+await otherTab.getByRole("heading", { name: "World 1" }).waitFor();
+const lockedBefore = await otherTab.getByRole("button", { name: /Stage \d is locked/ }).count();
+await page.goto(BASE + "#/play/block-dash/stage/w1-s2");
+await page.waitForFunction(() => !!window.__KR__, null, { timeout: 30000 });
+const s2 = world1.stages[1];
+const fin2 = s2.obstacles.find((o) => o.id === "finish");
+await page.keyboard.down("KeyW");
+await page.waitForFunction(() => window.__KR__.state().runTimeMs > 0, null, { timeout: 30000 });
+await page.evaluate((f) => window.__KR__.teleport(f), [fin2.position[0], fin2.position[1] - fin2.size[1] / 2, fin2.position[2] - fin2.size[2] / 2 - 1]);
+await page.waitForFunction(() => window.__KR__.state().finished, null, { timeout: 30000 });
+await page.keyboard.up("KeyW");
+const updated = await otherTab
+  .getByRole("button", { name: "Play stage 3" })
+  .waitFor({ timeout: 5000 })
+  .then(() => true, () => false);
+check("A map open in another tab unlocks Stage 3 without reloading", lockedBefore === 3 && updated, `locked before: ${lockedBefore}`);
+check("Stepping onto the ENTER key finishes (whole key is the finish line)", await shows(page.getByRole("dialog", { name: "Finished" })));
+await otherTab.close();
 
 check("No console errors", errors.length === 0, errors.join(" | "));
 await browser.close();

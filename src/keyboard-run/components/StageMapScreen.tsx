@@ -1,6 +1,6 @@
 import { world1 } from "../data/stages/world1";
 import { isStageUnlocked } from "../state/progress";
-import { useBlockDashProgress } from "../state/progressStore";
+import { canSaveProgress, useBlockDashProgress } from "../state/progressStore";
 import { formatRunTime } from "../utils/formatTime";
 
 interface Props {
@@ -37,6 +37,13 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
           <h1 className="text-5xl font-black text-indigo-800 drop-shadow-[0_3px_0_rgba(255,255,255,0.8)]">{world1.name}</h1>
           <p className="mt-1 font-bold text-slate-600">Finish a stage to open the next one. Harder stages pay more Wins!</p>
         </div>
+
+        {!canSaveProgress() && (
+          <p role="alert" className="rounded-2xl bg-amber-100 px-4 py-3 text-center font-bold text-amber-900">
+            ⚠️ This browser isn't letting the game save, so stages you open will lock again when you close it. Turn off
+            Private Browsing (or allow website data for vqvb.com) to keep your progress.
+          </p>
+        )}
 
         <ol className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5" aria-label="Stages">
           {world1.stages.map((stage) => {

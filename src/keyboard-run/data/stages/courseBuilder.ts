@@ -250,7 +250,8 @@ export class CourseBuilder {
       stepUp: 0,
       labels: ["ENTER"],
     });
-    this.obstacles.push({ type: "finish", id: "finish", position: [0, this.top + 2.5, z0 + 3.7], size: [size, 5, 1.5] });
+    // The whole ENTER key counts as the finish line: stepping onto it finishes.
+    this.obstacles.push({ type: "finish", id: "finish", position: [0, this.top + 2.5, z0 + size / 2], size: [size, 5, size] });
     this.z = z0 + size;
     return this;
   }
