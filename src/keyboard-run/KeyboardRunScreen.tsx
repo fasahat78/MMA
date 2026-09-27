@@ -157,6 +157,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
   // Stable so TouchControls' cleanup only runs when it unmounts.
   const touchMove = useCallback((x: number, z: number) => engineRef.current?.setTouchMove(x, z), []);
   const touchJump = useCallback((down: boolean) => engineRef.current?.setTouchJump(down), []);
+  const touchLook = useCallback((dx: number, dy: number) => engineRef.current?.addLookDelta(dx, dy), []);
   const respawn = useCallback(() => engineRef.current?.respawn(), []);
 
   if (status === "error") {
@@ -184,7 +185,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
       />
 
       {status === "ready" && touchMode && !paused && finishMs === null && (
-        <TouchControls onMove={touchMove} onJump={touchJump} onRespawn={respawn} />
+        <TouchControls onMove={touchMove} onLook={touchLook} onJump={touchJump} />
       )}
 
       {status === "ready" && (
@@ -195,8 +196,10 @@ export function KeyboardRunScreen({ onExit }: Props) {
           runStarted={runStarted}
           mouseCaptured={mouseCaptured}
           touchMode={touchMode}
-          showSprintHint={runStarted && !sprintUsed && finishMs === null}
+          // Touch has no sprint control (distance = speed), so no hint there.
+          showSprintHint={!touchMode && runStarted && !sprintUsed && finishMs === null}
           onExit={onExit}
+          onRespawn={respawn}
           onPause={() => engineRef.current?.pause()}
         />
       )}

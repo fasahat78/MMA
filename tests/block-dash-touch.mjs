@@ -1,15 +1,14 @@
 // Block Dash on phones and tablets: emulated iPhone and iPad, in WebKit
-// (Safari's engine) and Chromium. Drives the on-screen stick and buttons
-// with touch pointer events. Needs a server like tests/keyboard-run.mjs:
+// (Safari's engine) and Chromium. Drives the Roblox-style touch controls
+// with touch pointer events: floating stick on the left half, drag-to-look
+// on the right half, jump button. Needs a server like tests/keyboard-run.mjs:
 //   npm run build && npm run preview -- --port 4317
 //   npm run test:block-dash-touch
 import { chromium, devices, webkit } from "playwright";
 import { playerMovement } from "../src/keyboard-run/data/movement.ts";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:4317/";
-const ROUTE = BASE + "#/play/block-dash";
-const WALK = playerMovement.baseSpeed;
-const SPRINT = WALK * playerMovement.sprintMultiplier;
+const TOP_SPEED = playerMovement.baseSpeed * playerMovement.sprintMultiplier;
 let failures = 0;
 
 function check(name, ok, detail = "") {
@@ -17,25 +16,35 @@ function check(name, ok, detail = "") {
   if (!ok) failures++;
 }
 
-/** Fires a touch pointer event at a point inside an element (x/y as 0–1 of its box). */
-async function touch(page, selector, type, fx, fy, pointerId) {
+/**
+ * Fires a touch pointer event. `x`/`y` are fractions (0–1) of the viewport;
+ * the event goes to whatever element is at that point, like a real finger.
+ */
+async function touch(page, type, x, y, pointerId, target) {
   await page.evaluate(
-    ({ selector, type, fx, fy, pointerId }) => {
-      const el = document.querySelector(selector);
-      const r = el.getBoundingClientRect();
+    ({ type, x, y, pointerId, target }) => {
+      const cx = window.innerWidth * x;
+      const cy = window.innerHeight * y;
+      // Captured pointers keep reporting to the element that started them.
+      window.__touchTargets ??= {};
+      const el =
+        target === "jump"
+          ? document.querySelector('button[aria-label="Jump"]')
+          : (type === "pointerdown" ? null : window.__touchTargets[pointerId]) ?? document.elementFromPoint(cx, cy);
+      if (type === "pointerdown") window.__touchTargets[pointerId] = el;
       el.dispatchEvent(
         new PointerEvent(type, {
           pointerId,
           pointerType: "touch",
           isPrimary: pointerId === 1,
-          clientX: r.left + r.width * fx,
-          clientY: r.top + r.height * fy,
+          clientX: cx,
+          clientY: cy,
           bubbles: true,
           cancelable: true,
         }),
       );
     },
-    { selector, type, fx, fy, pointerId },
+    { type, x, y, pointerId, target },
   );
 }
 
@@ -51,6 +60,9 @@ async function run(engineName, launcher, deviceName, extraArgs) {
   });
 
   const state = () => page.evaluate(() => window.__KR__.state());
+  // Headless WebKit renders on the CPU and advances slowly: be patient, and
+  // check speeds rather than distances. Predicates run in the page, so pass
+  // values in via `arg`.
   const until = async (predicate, arg, timeout = 30000) => {
     try {
       await page.waitForFunction(
@@ -64,7 +76,6 @@ async function run(engineName, launcher, deviceName, extraArgs) {
     }
   };
 
-  // The home page card opens the game on a touch device.
   await page.goto(BASE);
   await page.getByRole("button", { name: /Block Dash/ }).click();
   const loaded = await page.waitForFunction(() => !!window.__KR__, null, { timeout: 60000 }).then(() => true, () => false);
@@ -74,37 +85,61 @@ async function run(engineName, launcher, deviceName, extraArgs) {
     return;
   }
   await until((s) => s.grounded);
-  check(`${label}: no "keyboard needed" message`, !(await page.getByText("Keyboard needed").isVisible()));
-  check(`${label}: joystick and JUMP button shown`, (await page.locator(".kr-stick").isVisible()) && (await page.getByRole("button", { name: "Jump" }).isVisible()));
-  check(`${label}: touch instructions shown`, await page.getByText("push it all the way to sprint").isVisible());
+  check(`${label}: move + look hints and jump button shown`,
+    (await page.getByText("Drag here to move").isVisible()) &&
+      (await page.getByText("Drag here to look around").isVisible()) &&
+      (await page.getByRole("button", { name: "Jump" }).isVisible()));
+  check(`${label}: touch instructions shown`, await page.getByText("push further to run faster").isVisible());
+  check(`${label}: no sprint hint on touch`, !(await page.getByText("to sprint!").isVisible()));
 
-  // Half-push forward walks slower than full speed; full push sprints.
+  // Floating stick: appears where the thumb lands (mid-left, not the corner).
+  await touch(page, "pointerdown", 0.3, 0.55, 1);
+  const stickBox = await page.locator(".kr-stick").boundingBox();
+  const vp = page.viewportSize();
+  check(`${label}: stick appears under the thumb`,
+    !!stickBox && Math.abs(stickBox.x + stickBox.width / 2 - vp.width * 0.3) < 4 && Math.abs(stickBox.y + stickBox.height / 2 - vp.height * 0.55) < 4);
+
+  // A small push walks slowly; a full push runs at top speed.
   const start = (await state()).position[2];
-  await touch(page, ".kr-stick", "pointerdown", 0.5, 0.5, 1);
-  await touch(page, ".kr-stick", "pointermove", 0.5, 0.3, 1);
-  // Headless WebKit renders on the CPU and advances slowly, so check speed, not distance.
-  // (Predicates run inside the page: pass values in via the second argument.)
-  const halfOk = await until((s, a) => s.position[2] > a.start + 0.1 && s.speed > 1 && s.speed < a.walk - 0.5, { start, walk: WALK });
-  check(`${label}: half push walks forward, below top speed`, halfOk, JSON.stringify({ start, ...(await state()) }));
-  await touch(page, ".kr-stick", "pointermove", 0.5, -0.4, 1);
-  check(`${label}: full push sprints`, await until((s, v) => Math.abs(s.speed - v) < 0.05, SPRINT));
-  check(`${label}: sprint hint clears after sprinting`, await page.getByText("to sprint!").waitFor({ state: "detached", timeout: 5000 }).then(() => true, () => false));
-  await touch(page, ".kr-stick", "pointerup", 0.5, -0.4, 1);
-  check(`${label}: letting go stops`, await until((s) => s.speed === 0));
+  await touch(page, "pointermove", 0.3, 0.55 - 20 / vp.height, 1);
+  check(`${label}: small push moves slowly`,
+    await until((s, a) => s.position[2] > a.start + 0.1 && s.speed > 1 && s.speed < a.top / 2, { start, top: TOP_SPEED }));
+  await touch(page, "pointermove", 0.3, 0.55 - 120 / vp.height, 1);
+  check(`${label}: full push runs at top speed`, await until((s, top) => Math.abs(s.speed - top) < 0.05, TOP_SPEED));
+  check(`${label}: move hint goes away after moving`, !(await page.getByText("Drag here to move").isVisible()));
 
-  // Jump with a second finger while the first is on the stick.
-  await page.evaluate(() => window.__KR__.teleport([0, 0, -2]));
-  await until((s) => s.grounded);
+  // Jump with a second finger while running.
   const groundY = (await state()).position[1];
-  await touch(page, ".kr-stick", "pointerdown", 0.5, 0.5, 1);
-  await touch(page, ".kr-stick", "pointermove", 0.5, 0.2, 1);
-  await touch(page, 'button[aria-label="Jump"]', "pointerdown", 0.5, 0.5, 2);
-  check(`${label}: JUMP works while moving (two fingers)`, await until((s, y) => s.position[1] - y > 0.8 && s.speed > 1, groundY));
-  await touch(page, 'button[aria-label="Jump"]', "pointerup", 0.5, 0.5, 2);
-  await touch(page, ".kr-stick", "pointerup", 0.5, 0.2, 1);
-  check(`${label}: lands after jumping`, await until((s) => s.grounded));
+  await touch(page, "pointerdown", 0.9, 0.9, 2, "jump");
+  check(`${label}: jump works while running (two fingers)`, await until((s, y) => s.position[1] - y > 0.8 && s.speed > 1, groundY));
+  await touch(page, "pointerup", 0.9, 0.9, 2, "jump");
+  await touch(page, "pointerup", 0.3, 0.4, 1);
+  check(`${label}: letting go stops`, await until((s) => s.grounded && s.speed === 0));
 
-  // ↺ goes back to the start (no checkpoint yet).
+  // Drag on the right half turns the camera.
+  const yaw0 = (await state()).yaw;
+  await touch(page, "pointerdown", 0.75, 0.4, 3);
+  await touch(page, "pointermove", 0.75 + 100 / vp.width, 0.4, 3);
+  await touch(page, "pointerup", 0.75 + 100 / vp.width, 0.4, 3);
+  const yaw1 = (await state()).yaw;
+  check(`${label}: dragging the right side turns the camera`, yaw1 < yaw0 - 0.3, `yaw ${yaw0.toFixed(2)} → ${yaw1.toFixed(2)}`);
+  check(`${label}: look hint goes away after looking`, !(await page.getByText("Drag here to look around").isVisible()));
+  check(`${label}: no stick left behind by the look drag`, !(await page.locator(".kr-stick").isVisible()));
+
+  // After turning, "up" on the stick follows the camera (walks along the new heading).
+  await page.evaluate(() => window.__KR__.teleport([0, 0, 0]));
+  await until((s) => s.grounded);
+  const before = (await state()).position;
+  await touch(page, "pointerdown", 0.3, 0.6, 4);
+  await touch(page, "pointermove", 0.3, 0.6 - 120 / vp.height, 4);
+  await until((s, p) => Math.hypot(s.position[0] - p[0], s.position[2] - p[2]) > 0.5, before);
+  await touch(page, "pointerup", 0.3, 0.4, 4);
+  const after = (await state()).position;
+  const heading = Math.atan2(after[0] - before[0], after[2] - before[2]);
+  const diff = Math.atan2(Math.sin(heading - yaw1), Math.cos(heading - yaw1));
+  check(`${label}: stick moves in the camera's direction`, Math.abs(diff) < 0.2, `heading ${heading.toFixed(2)} vs camera ${yaw1.toFixed(2)}`);
+
+  // ↺ lives in the top bar now (not next to jump).
   await page.evaluate(() => window.__KR__.teleport([0, 0, 5]));
   await until((s) => s.grounded);
   await page.getByRole("button", { name: "Back to last checkpoint" }).tap();
@@ -112,15 +147,14 @@ async function run(engineName, launcher, deviceName, extraArgs) {
 
   // Pause hides the thumb controls; resume brings them back.
   await page.getByRole("button", { name: "Pause" }).tap();
-  check(`${label}: pause shows the panel and hides the controls`, (await page.getByRole("dialog", { name: "Paused" }).isVisible()) && !(await page.locator(".kr-stick").isVisible()));
+  check(`${label}: pause shows the panel and hides the controls`,
+    (await page.getByRole("dialog", { name: "Paused" }).isVisible()) && !(await page.getByRole("button", { name: "Jump" }).isVisible()));
   await page.getByRole("button", { name: /Keep going/ }).tap();
-  check(`${label}: resume brings the controls back`, await page.locator(".kr-stick").isVisible());
+  check(`${label}: resume brings the controls back`, await page.getByRole("button", { name: "Jump" }).isVisible());
 
-  // Page doesn't scroll or zoom from play.
   check(`${label}: page did not scroll`, (await page.evaluate(() => window.scrollY)) === 0);
 
   // Rotating the device keeps the game filling the screen.
-  const vp = page.viewportSize();
   await page.setViewportSize({ width: vp.height, height: vp.width });
   const fits = await page
     .waitForFunction(([w, h]) => {
@@ -129,16 +163,16 @@ async function run(engineName, launcher, deviceName, extraArgs) {
     }, [vp.height, vp.width], { timeout: 5000 })
     .then(() => true, () => false);
   check(`${label}: rotating keeps the game full-screen`, fits);
-  check(`${label}: controls still on screen after rotating`, await page.locator(".kr-stick").isVisible());
+  check(`${label}: jump button still on screen after rotating`, await page.getByRole("button", { name: "Jump" }).isVisible());
 
   check(`${label}: no page errors`, errors.length === 0, errors.join(" | "));
   await browser.close();
 }
 
 const SWIFTSHADER = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"];
-await run("WebKit", webkit, "iPhone 15", []);
 await run("WebKit", webkit, "iPad Pro 11", []);
-await run("Chromium", chromium, "iPhone 15", SWIFTSHADER);
+await run("WebKit", webkit, "iPhone 15", []);
+await run("Chromium", chromium, "iPad Pro 11", SWIFTSHADER);
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll Block Dash touch checks passed");
 process.exit(failures ? 1 : 0);

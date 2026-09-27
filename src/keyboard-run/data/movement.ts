@@ -65,6 +65,8 @@ export const cameraConfig = {
   minPitch: -0.2,
   maxPitch: 1.2,
   mouseSensitivity: 0.0025,
+  /** Radians per pixel when dragging on the right half of a touch screen. */
+  touchLookSensitivity: 0.007,
   /** Look-at point above the player's centre. */
   targetHeight: 1.0,
   /** Higher = snappier follow. */

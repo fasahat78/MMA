@@ -23,13 +23,14 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
 
 ## Phones and tablets
 
-On touch screens (iPad, iPhone) the game shows thumb controls:
-- a joystick on the left (push it all the way out to sprint);
-- a JUMP button on the right (hold it for a higher jump);
-- a ↺ respawn button.
+Touch controls copy Roblox mobile, because that's what Zoya knows:
+- **Left half of the screen:** touch anywhere and a stick appears under the thumb. Push further to run faster; a full push is top (sprint) speed, and there's no separate sprint control.
+- **Right half:** drag to turn the camera. The stick moves the player in the direction the camera faces.
+- **⬆ button** (bottom right): jump; hold it for a higher jump.
+- **↺ and ⏸:** in the top bar, away from the thumbs.
 
 Graphics drop to a lighter level on these devices (1024 shadow map, pixel ratio capped at 1.5).
-`npm run test:block-dash-touch` emulates an iPhone and an iPad in WebKit and Chromium.
+`npm run test:block-dash-touch` emulates an iPad and an iPhone in WebKit and Chromium.
 
 ## Tuning
 

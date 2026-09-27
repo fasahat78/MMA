@@ -12,12 +12,14 @@ interface Props {
   showSprintHint: boolean;
   onExit: () => void;
   onPause: () => void;
+  /** Touch screens get a ↺ button in the top bar (keyboard players use R). */
+  onRespawn: () => void;
 }
 
 const pill = "rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md backdrop-blur";
 
 // Always-on overlay: exit, run clock, checkpoint progress, control hints.
-export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause }: Props) {
+export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause, onRespawn }: Props) {
   return (
     <>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -43,6 +45,15 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
           <div className={pill} aria-label={`Checkpoint ${checkpoint} of ${checkpointTotal}`}>
             🚩 {checkpoint}/{checkpointTotal}
           </div>
+          {touchMode && (
+            <button
+              onClick={onRespawn}
+              className={`btn-pop pointer-events-auto min-h-[44px] ${pill}`}
+              aria-label="Back to last checkpoint"
+            >
+              ↺
+            </button>
+          )}
           <button
             onClick={onPause}
             className={`btn-pop pointer-events-auto min-h-[44px] ${pill}`}
@@ -72,16 +83,9 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
       )}
 
       {showSprintHint && (
-        // On touch screens the hint sits up top, away from the thumbs.
-        <div className={`pointer-events-none absolute inset-x-0 flex justify-center px-3 ${touchMode ? "top-20" : "bottom-16"}`}>
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center px-3">
           <div className="animate-pulse rounded-full bg-amber-300 px-5 py-2 text-center text-lg font-extrabold text-amber-950 shadow-lg motion-reduce:animate-none">
-            {touchMode ? (
-              <>⚡ Push the stick all the way to sprint!</>
-            ) : (
-              <>
-                ⚡ Hold <kbd className="rounded-md bg-white px-2 py-0.5 font-mono text-base ring-1 ring-amber-500">SHIFT</kbd> to sprint!
-              </>
-            )}
+            ⚡ Hold <kbd className="rounded-md bg-white px-2 py-0.5 font-mono text-base ring-1 ring-amber-500">SHIFT</kbd> to sprint!
           </div>
         </div>
       )}
@@ -105,8 +109,9 @@ const KEYBOARD_CONTROLS: Array<[string, string]> = [
 ];
 
 const TOUCH_CONTROLS: Array<[string, string]> = [
-  ["🕹️ Stick", "Move — push it all the way to sprint"],
-  ["JUMP", "Jump (hold for higher)"],
+  ["Left side", "Drag to move — push further to run faster"],
+  ["Right side", "Drag to look around"],
+  ["⬆", "Jump (hold for higher)"],
   ["↺", "Back to last checkpoint"],
   ["⏸", "Pause"],
 ];

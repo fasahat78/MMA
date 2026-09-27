@@ -31,6 +31,7 @@ interface E2ESeam {
   state: () => {
     position: number[];
     speed: number;
+    yaw: number;
     grounded: boolean;
     runTimeMs: number;
     finished: boolean;
@@ -218,6 +219,7 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
       state: () => ({
         position: [...sim.position],
         speed: Math.hypot(sim.motion.vx, sim.motion.vz),
+        yaw: input.yaw,
         grounded: sim.grounded,
         runTimeMs: sim.runTimeMs,
         finished: sim.finished,
@@ -237,6 +239,9 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
     },
     setTouchMove: (x, z) => {
       if (!paused) input.setTouchMove(x, z);
+    },
+    addLookDelta: (dx, dy) => {
+      if (!paused) input.addLookDelta(dx, dy);
     },
     setTouchJump: (down) => {
       if (!paused || !down) input.setTouchJump(down);

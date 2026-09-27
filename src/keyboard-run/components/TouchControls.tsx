@@ -1,29 +1,43 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { TOUCH_SPRINT_THRESHOLD } from "../game/input";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 interface Props {
   onMove: (x: number, z: number) => void;
+  onLook: (dx: number, dy: number) => void;
   onJump: (down: boolean) => void;
-  onRespawn: () => void;
 }
 
-/** How far (px) the knob can travel from the centre. */
-const STICK_TRAVEL = 52;
+/** Stick size and how far (px) the knob can travel from where the thumb landed. */
+const STICK_SIZE = 128;
+const STICK_TRAVEL = 56;
 
-// Thumb controls for phones and tablets: a joystick on the left (push it all
-// the way out to sprint), a big JUMP button on the right, and a respawn
-// button. Each control tracks its own finger, so both thumbs work at once.
-export function TouchControls({ onMove, onJump, onRespawn }: Props) {
+type StickTouch = { id: number; ox: number; oy: number };
+type LookTouch = { id: number; x: number; y: number };
+
+// Roblox-style thumb controls (Zoya plays Roblox on iPad):
+// - touch anywhere on the LEFT half and a stick appears under the thumb;
+//   push further to run faster (full push = top speed, no sprint button)
+// - drag anywhere on the RIGHT half to turn the camera
+// - round jump button bottom-right (hold for a higher jump)
+// Every finger is tracked by its own id, so move + look + jump work together.
+export function TouchControls({ onMove, onLook, onJump }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
-  const stickPointer = useRef<number | null>(null);
+  const stick = useRef<StickTouch | null>(null);
+  const look = useRef<LookTouch | null>(null);
   const jumpPointer = useRef<number | null>(null);
+  const [stickActive, setStickActive] = useState(false);
+  const [usedMove, setUsedMove] = useState(false);
+  const [usedLook, setUsedLook] = useState(false);
 
-  // Let go of everything if the controls disappear mid-press.
-  useEffect(() => () => {
-    onMove(0, 0);
-    onJump(false);
-  }, [onMove, onJump]);
+  // Let go of everything if the controls disappear mid-press (pause, finish).
+  useEffect(
+    () => () => {
+      onMove(0, 0);
+      onJump(false);
+    },
+    [onMove, onJump],
+  );
 
   function capture(e: ReactPointerEvent<HTMLElement>) {
     try {
@@ -33,97 +47,146 @@ export function TouchControls({ onMove, onJump, onRespawn }: Props) {
     }
   }
 
-  function moveStick(e: ReactPointerEvent<HTMLDivElement>) {
+  function placeStick(ox: number, oy: number) {
     const base = baseRef.current;
+    if (!base) return;
+    base.style.left = `${ox - STICK_SIZE / 2}px`;
+    base.style.top = `${oy - STICK_SIZE / 2}px`;
+  }
+
+  function moveStick(clientX: number, clientY: number) {
+    const s = stick.current;
     const knob = knobRef.current;
-    if (!base || !knob) return;
-    const rect = base.getBoundingClientRect();
-    let dx = e.clientX - (rect.left + rect.width / 2);
-    let dy = e.clientY - (rect.top + rect.height / 2);
+    if (!s || !knob) return;
+    let dx = clientX - s.ox;
+    let dy = clientY - s.oy;
     const dist = Math.hypot(dx, dy);
     if (dist > STICK_TRAVEL) {
       dx = (dx / dist) * STICK_TRAVEL;
       dy = (dy / dist) * STICK_TRAVEL;
     }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    const x = dx / STICK_TRAVEL;
-    const z = -dy / STICK_TRAVEL; // screen up = forward
-    base.dataset.sprint = String(Math.hypot(x, z) >= TOUCH_SPRINT_THRESHOLD);
-    onMove(x, z);
+    onMove(dx / STICK_TRAVEL, -dy / STICK_TRAVEL); // screen up = forward
   }
 
-  function releaseStick() {
-    stickPointer.current = null;
+  function endStick() {
+    stick.current = null;
+    setStickActive(false);
     if (knobRef.current) knobRef.current.style.transform = "";
-    if (baseRef.current) baseRef.current.dataset.sprint = "false";
     onMove(0, 0);
   }
 
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const rect = surface.getBoundingClientRect();
+    const leftHalf = e.clientX - rect.left < rect.width / 2;
+    if (leftHalf && !stick.current) {
+      // Keep the whole stick on screen even if the thumb lands at the edge.
+      const half = STICK_SIZE / 2;
+      const ox = Math.min(Math.max(e.clientX - rect.left, half), rect.width - half);
+      const oy = Math.min(Math.max(e.clientY - rect.top, half), rect.height - half);
+      stick.current = { id: e.pointerId, ox: ox + rect.left, oy: oy + rect.top };
+      placeStick(ox, oy);
+      setStickActive(true);
+      setUsedMove(true);
+      capture(e);
+      moveStick(e.clientX, e.clientY);
+    } else if (!leftHalf && !look.current) {
+      look.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      capture(e);
+    }
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (stick.current?.id === e.pointerId) {
+      moveStick(e.clientX, e.clientY);
+    } else if (look.current?.id === e.pointerId) {
+      const dx = e.clientX - look.current.x;
+      const dy = e.clientY - look.current.y;
+      look.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      if (dx !== 0 || dy !== 0) {
+        onLook(dx, dy);
+        setUsedLook(true);
+      }
+    }
+  }
+
+  function onPointerEnd(e: ReactPointerEvent<HTMLDivElement>) {
+    if (stick.current?.id === e.pointerId) endStick();
+    else if (look.current?.id === e.pointerId) look.current = null;
+  }
+
+  function jump(down: boolean, e: ReactPointerEvent<HTMLButtonElement>) {
+    // Don't let the jump finger also start a camera drag on the surface.
+    e.stopPropagation();
+    if (down) {
+      if (jumpPointer.current !== null) return;
+      jumpPointer.current = e.pointerId;
+      capture(e);
+      onJump(true);
+    } else if (e.pointerId === jumpPointer.current) {
+      jumpPointer.current = null;
+      onJump(false);
+    }
+  }
+
   return (
-    <div className="kr-touch pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      {/* Joystick */}
+    <div
+      ref={surfaceRef}
+      className="kr-touch kr-touch-surface absolute inset-0 touch-none select-none"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {/* Resting hint where the stick usually goes, until she first moves. */}
+      {!stickActive && (
+        <div
+          className="pointer-events-none absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-8 grid size-32 place-items-center rounded-full border-4 border-white/50 bg-slate-900/15"
+          aria-hidden
+        >
+          <div className="size-14 rounded-full bg-white/50" />
+          {!usedMove && (
+            <span className="absolute -top-8 whitespace-nowrap text-sm font-extrabold text-white drop-shadow">
+              👆 Drag here to move
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* The live stick, placed under the thumb. */}
       <div
         ref={baseRef}
-        data-sprint="false"
-        role="application"
-        aria-label="Movement stick. Push all the way out to sprint."
-        className="kr-stick pointer-events-auto relative grid size-32 touch-none select-none place-items-center rounded-full border-4 border-white/70 bg-slate-900/25 shadow-lg backdrop-blur-sm transition-colors data-[sprint=true]:border-amber-300 data-[sprint=true]:bg-amber-400/30"
-        onPointerDown={(e) => {
-          if (stickPointer.current !== null) return;
-          stickPointer.current = e.pointerId;
-          capture(e);
-          moveStick(e);
-        }}
-        onPointerMove={(e) => {
-          if (e.pointerId === stickPointer.current) moveStick(e);
-        }}
-        onPointerUp={(e) => {
-          if (e.pointerId === stickPointer.current) releaseStick();
-        }}
-        onPointerCancel={(e) => {
-          if (e.pointerId === stickPointer.current) releaseStick();
-        }}
+        className={`kr-stick pointer-events-none absolute grid place-items-center rounded-full border-4 border-white/80 bg-slate-900/25 shadow-lg ${stickActive ? "" : "hidden"}`}
+        style={{ width: STICK_SIZE, height: STICK_SIZE }}
+        aria-hidden
       >
-        <span className="pointer-events-none absolute -top-7 left-0 whitespace-nowrap text-xs font-extrabold text-white drop-shadow" aria-hidden>
-          push to edge = ⚡ sprint
-        </span>
-        <div ref={knobRef} className="pointer-events-none size-14 rounded-full bg-white/90 shadow-md" aria-hidden />
+        <div ref={knobRef} className="size-14 rounded-full bg-white/90 shadow-md" />
       </div>
 
-      <div className="flex flex-col items-end gap-3">
-        <button
-          type="button"
-          onClick={onRespawn}
-          className="pointer-events-auto grid size-12 touch-manipulation select-none place-items-center rounded-full bg-white/85 text-xl font-black text-slate-700 shadow-md"
-          aria-label="Back to last checkpoint"
+      {!usedLook && (
+        <p
+          className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 whitespace-nowrap text-sm font-extrabold text-white/90 drop-shadow"
+          aria-hidden
         >
-          ↺
-        </button>
-        <button
-          type="button"
-          className="pointer-events-auto grid size-24 touch-none select-none place-items-center rounded-full border-4 border-white/80 bg-fuchsia-500/85 text-lg font-black text-white shadow-xl active:scale-95 active:bg-fuchsia-600"
-          aria-label="Jump"
-          onPointerDown={(e) => {
-            if (jumpPointer.current !== null) return;
-            jumpPointer.current = e.pointerId;
-            capture(e);
-            onJump(true);
-          }}
-          onPointerUp={(e) => {
-            if (e.pointerId !== jumpPointer.current) return;
-            jumpPointer.current = null;
-            onJump(false);
-          }}
-          onPointerCancel={(e) => {
-            if (e.pointerId !== jumpPointer.current) return;
-            jumpPointer.current = null;
-            onJump(false);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          JUMP
-        </button>
-      </div>
+          Drag here to look around 👆
+        </p>
+      )}
+
+      {/* Roblox-style jump button. */}
+      <button
+        type="button"
+        className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] right-8 grid size-24 touch-none select-none place-items-center rounded-full border-4 border-white/80 bg-slate-900/35 text-5xl font-black leading-none text-white shadow-xl active:scale-95 active:bg-slate-900/55"
+        aria-label="Jump"
+        onPointerDown={(e) => jump(true, e)}
+        onPointerUp={(e) => jump(false, e)}
+        onPointerCancel={(e) => jump(false, e)}
+        onPointerMove={(e) => e.stopPropagation()}
+      >
+        <span aria-hidden>⬆</span>
+      </button>
     </div>
   );
 }

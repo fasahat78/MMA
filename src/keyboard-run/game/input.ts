@@ -1,12 +1,11 @@
 import { cameraConfig } from "../data/movement";
 import type { SimInput } from "./sim/playerMotion";
 
-// Keyboard + mouse (brief §4) and on-screen touch controls. Tracks held keys,
-// turns mouse movement into camera yaw/pitch while the pointer is locked,
-// reports Esc / R / Enter, and merges in the touch joystick and jump button.
-
-/** Pushing the touch stick this far out (0–1) also sprints. */
-export const TOUCH_SPRINT_THRESHOLD = 0.92;
+// Keyboard + mouse (brief §4) and Roblox-style touch controls. Tracks held
+// keys, turns mouse movement (pointer lock) or a right-side touch drag into
+// camera yaw/pitch, reports Esc / R / Enter, and merges in the touch stick
+// and jump button. On touch, stick distance sets speed up to full sprint —
+// there is no separate sprint control, as in Roblox.
 
 const FORWARD = ["KeyW", "ArrowUp"];
 const BACK = ["KeyS", "ArrowDown"];
@@ -72,15 +71,21 @@ export class InputController {
     const jumpPressed = this.jumpQueued;
     this.jumpQueued = false;
     const clamp = (v: number) => Math.max(-1, Math.min(1, v));
-    const touchSprint = Math.hypot(this.touchX, this.touchZ) >= TOUCH_SPRINT_THRESHOLD;
+    const touchMoving = this.touchX !== 0 || this.touchZ !== 0;
     return {
       moveX: clamp(axis(RIGHT, LEFT) + this.touchX),
       moveZ: clamp(axis(FORWARD, BACK) + this.touchZ),
       yaw: this.yaw,
-      sprint: this.any(SPRINT) || touchSprint,
+      sprint: this.any(SPRINT) || touchMoving,
       jumpPressed,
       jumpHeld: this.any(JUMP) || this.touchJumpHeld,
     };
+  }
+
+  /** Touch drag on the look area: pixels moved since the last call. */
+  addLookDelta(dx: number, dy: number): void {
+    this.yaw -= dx * cameraConfig.touchLookSensitivity;
+    this.pitch = Math.min(cameraConfig.maxPitch, Math.max(cameraConfig.minPitch, this.pitch + dy * cameraConfig.touchLookSensitivity));
   }
 
   /** Joystick position: x right, z forward, each −1…1 (length ≤ 1). */
