@@ -7,8 +7,9 @@ interface Props {
 }
 
 /** Stick size and how far (px) the knob can travel from where the thumb landed. */
-const STICK_SIZE = 128;
-const STICK_TRAVEL = 56;
+// Sized up after Zoya kept missing the controls on iPad.
+const STICK_SIZE = 170;
+const STICK_TRAVEL = 72;
 
 type StickTouch = { id: number; ox: number; oy: number };
 type LookTouch = { id: number; x: number; y: number };
@@ -19,6 +20,12 @@ type LookTouch = { id: number; x: number; y: number };
 // - drag anywhere on the RIGHT half to turn the camera
 // - round jump button bottom-right (hold for a higher jump)
 // Every finger is tracked by its own id, so move + look + jump work together.
+//
+// iPad Safari sometimes never reports a finger lifting (system gestures, a
+// palm, a finger sliding onto a button). A missed lift used to leave the
+// stick "held": the player kept running and new touches were ignored. So:
+// a new touch always takes over its control, a lost touch counts as lifted,
+// and when no fingers are on the screen at all, everything is released.
 export function TouchControls({ onMove, onLook, onJump }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
@@ -38,6 +45,49 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
     },
     [onMove, onJump],
   );
+
+  // Safety net that doesn't rely on per-finger events: no fingers down = nothing held.
+  useEffect(() => {
+    const releaseAll = () => {
+      if (stick.current) endStick();
+      look.current = null;
+      if (jumpPointer.current !== null) {
+        jumpPointer.current = null;
+        onJump(false);
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) releaseAll();
+    };
+    // Lifts that land on other elements (a HUD button, an overlay) still count.
+    const onPointerEndAnywhere = (e: PointerEvent) => {
+      if (stick.current?.id === e.pointerId) endStick();
+      if (look.current?.id === e.pointerId) look.current = null;
+      if (jumpPointer.current === e.pointerId) {
+        jumpPointer.current = null;
+        onJump(false);
+      }
+    };
+    const onHidden = () => {
+      if (document.visibilityState !== "visible") releaseAll();
+    };
+    window.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+    window.addEventListener("touchcancel", onTouchEnd, { capture: true, passive: true });
+    window.addEventListener("pointerup", onPointerEndAnywhere, true);
+    window.addEventListener("pointercancel", onPointerEndAnywhere, true);
+    window.addEventListener("blur", releaseAll);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("touchend", onTouchEnd, true);
+      window.removeEventListener("touchcancel", onTouchEnd, true);
+      window.removeEventListener("pointerup", onPointerEndAnywhere, true);
+      window.removeEventListener("pointercancel", onPointerEndAnywhere, true);
+      window.removeEventListener("blur", releaseAll);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+    // endStick/onJump only touch refs and stable callbacks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onJump]);
 
   function capture(e: ReactPointerEvent<HTMLElement>) {
     try {
@@ -81,7 +131,8 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
     if (!surface) return;
     const rect = surface.getBoundingClientRect();
     const leftHalf = e.clientX - rect.left < rect.width / 2;
-    if (leftHalf && !stick.current) {
+    // A new thumb always takes over, even if an old touch was never released.
+    if (leftHalf) {
       // Keep the whole stick on screen even if the thumb lands at the edge.
       const half = STICK_SIZE / 2;
       const ox = Math.min(Math.max(e.clientX - rect.left, half), rect.width - half);
@@ -92,7 +143,7 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
       setUsedMove(true);
       capture(e);
       moveStick(e.clientX, e.clientY);
-    } else if (!leftHalf && !look.current) {
+    } else {
       look.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
       capture(e);
     }
@@ -121,7 +172,6 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
     // Don't let the jump finger also start a camera drag on the surface.
     e.stopPropagation();
     if (down) {
-      if (jumpPointer.current !== null) return;
       jumpPointer.current = e.pointerId;
       capture(e);
       onJump(true);
@@ -139,15 +189,16 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
+      onLostPointerCapture={onPointerEnd}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Resting hint where the stick usually goes, until she first moves. */}
       {!stickActive && (
         <div
-          className="pointer-events-none absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-8 grid size-32 place-items-center rounded-full border-4 border-white/50 bg-slate-900/15"
+          className="pointer-events-none absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-6 grid size-[170px] place-items-center rounded-full border-4 border-white/50 bg-slate-900/15"
           aria-hidden
         >
-          <div className="size-14 rounded-full bg-white/50" />
+          <div className="size-20 rounded-full bg-white/50" />
           {!usedMove && (
             <span className="absolute -top-8 whitespace-nowrap text-sm font-extrabold text-white drop-shadow">
               👆 Drag here to move
@@ -163,7 +214,7 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
         style={{ width: STICK_SIZE, height: STICK_SIZE }}
         aria-hidden
       >
-        <div ref={knobRef} className="size-14 rounded-full bg-white/90 shadow-md" />
+        <div ref={knobRef} className="size-20 rounded-full bg-white/90 shadow-md" />
       </div>
 
       {!usedLook && (
@@ -175,17 +226,24 @@ export function TouchControls({ onMove, onLook, onJump }: Props) {
         </p>
       )}
 
-      {/* Roblox-style jump button. */}
+      {/* Roblox-style jump button. The whole transparent corner square is the
+          touch target, so a near miss still jumps (instead of turning the camera). */}
       <button
         type="button"
-        className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] right-8 grid size-24 touch-none select-none place-items-center rounded-full border-4 border-white/80 bg-slate-900/35 text-5xl font-black leading-none text-white shadow-xl active:scale-95 active:bg-slate-900/55"
+        className="group absolute bottom-0 right-0 grid size-[220px] touch-none select-none place-items-center pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)]"
         aria-label="Jump"
         onPointerDown={(e) => jump(true, e)}
         onPointerUp={(e) => jump(false, e)}
         onPointerCancel={(e) => jump(false, e)}
+        onLostPointerCapture={(e) => jump(false, e)}
         onPointerMove={(e) => e.stopPropagation()}
       >
-        <span aria-hidden>⬆</span>
+        <span
+          aria-hidden
+          className="grid size-[136px] place-items-center rounded-full border-4 border-white/80 bg-slate-900/35 text-6xl font-black leading-none text-white shadow-xl group-active:scale-95 group-active:bg-slate-900/55"
+        >
+          ⬆
+        </span>
       </button>
     </div>
   );

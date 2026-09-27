@@ -98,7 +98,9 @@ export class InputController {
 
   /** Jump button down/up. Down queues a jump, holding keeps it high. */
   setTouchJump(down: boolean): void {
-    if (down && !this.touchJumpHeld) this.jumpQueued = true;
+    // Every press jumps — even if a previous lift was never reported, which
+    // would otherwise leave jump "held" and swallow every later press.
+    if (down) this.jumpQueued = true;
     this.touchJumpHeld = down;
   }
 

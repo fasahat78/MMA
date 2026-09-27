@@ -94,6 +94,16 @@ async function run(engineName, launcher, deviceName, extraArgs) {
     (await page.getByText("Drag here to move").isVisible()) &&
       (await page.getByText("Drag here to look around").isVisible()) &&
       (await page.getByRole("button", { name: "Jump" }).isVisible()));
+  // Bigger controls (Zoya kept missing them): a touch just outside the visible
+  // jump circle still lands on the jump button, and the stick is big.
+  const nearMiss = await page.evaluate(() => {
+    const circle = document.querySelector('button[aria-label="Jump"] span').getBoundingClientRect();
+    const el = document.elementFromPoint(circle.left - 20, circle.top - 20);
+    return el?.closest('button[aria-label="Jump"]') ? "jump" : el?.className?.slice(0, 40);
+  });
+  check(`${label}: a near miss beside the jump circle still jumps`, nearMiss === "jump", `hit: ${nearMiss}`);
+  const jumpSize = await page.evaluate(() => document.querySelector('button[aria-label="Jump"] span').getBoundingClientRect().width);
+  check(`${label}: jump button is big (≥ 130 px)`, jumpSize >= 130, `${jumpSize}px`);
   check(`${label}: touch instructions shown`, await page.getByText("push further to run faster").isVisible());
   check(`${label}: no sprint hint on touch`, !(await page.getByText("to sprint!").isVisible()));
 
@@ -143,6 +153,43 @@ async function run(engineName, launcher, deviceName, extraArgs) {
   const heading = Math.atan2(after[0] - before[0], after[2] - before[2]);
   const diff = Math.atan2(Math.sin(heading - yaw1), Math.cos(heading - yaw1));
   check(`${label}: stick moves in the camera's direction`, Math.abs(diff) < 0.2, `heading ${heading.toFixed(2)} vs camera ${yaw1.toFixed(2)}`);
+
+  // Bug fix (Zoya: "losing control, the control is getting stuck"): iPad Safari
+  // can drop a finger's lift. A new thumb must take over the stick, and lifting
+  // every finger must release everything.
+  await page.evaluate(() => window.__KR__.teleport([0, 0, 0]));
+  await until((s) => s.grounded);
+  await touch(page, "pointerdown", 0.3, 0.6, 11);
+  await touch(page, "pointermove", 0.3, 0.6 - 120 / vp.height, 11); // run forward, then the lift is "lost"
+  check(`${label}: (stuck-stick setup) running forward`, await until((s, top) => Math.abs(s.speed - top) < 0.05, TOP_SPEED));
+  await touch(page, "pointerdown", 0.25, 0.5, 12); // new thumb
+  await touch(page, "pointermove", 0.25 + 120 / vp.width, 0.5, 12); // push right
+  const rightNow = await until((s, a) => {
+    // Moving mostly sideways now, not forward.
+    return s.speed > 1 && Math.abs(s.yaw - a) < 10;
+  }, yaw1);
+  const p1 = (await state()).position;
+  await page.waitForTimeout(600);
+  const p2 = (await state()).position;
+  const sideways = Math.abs(p2[0] - p1[0]) > Math.abs(p2[2] - p1[2]);
+  check(`${label}: a new thumb takes over a stuck stick`, rightNow && sideways, `dx ${(p2[0] - p1[0]).toFixed(2)} dz ${(p2[2] - p1[2]).toFixed(2)}`);
+  // Now "lose" that lift too, then all fingers leave the screen.
+  await page.evaluate(() => {
+    // Desktop WebKit can't construct TouchEvent; a plain event with an empty
+    // `touches` list exercises the same "no fingers left" handler.
+    const ev = new Event("touchend", { bubbles: true });
+    Object.defineProperty(ev, "touches", { value: [] });
+    document.dispatchEvent(ev);
+  });
+  check(`${label}: lifting every finger releases a stuck stick`, await until((s) => s.speed === 0));
+  // A stuck jump press must not swallow the next jump.
+  await touch(page, "pointerdown", 0.9, 0.9, 13, "jump"); // pressed, lift "lost"
+  await until((s) => s.grounded && s.speed === 0);
+  await page.waitForTimeout(1500);
+  const yBefore = (await state()).position[1];
+  await touch(page, "pointerdown", 0.9, 0.9, 14, "jump");
+  check(`${label}: jump still works after a lost jump lift`, await until((s, y) => s.position[1] - y > 0.8, yBefore));
+  await touch(page, "pointerup", 0.9, 0.9, 14, "jump");
 
   // ↺ lives in the top bar now (not next to jump).
   await page.evaluate(() => window.__KR__.teleport([0, 0, 5]));
