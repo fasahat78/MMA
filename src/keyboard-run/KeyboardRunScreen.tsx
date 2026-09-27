@@ -25,7 +25,7 @@ function blurActive(): void {
   (document.activeElement as HTMLElement | null)?.blur?.();
 }
 
-// V0 movement sandbox (brief §34). React owns the page around the canvas; the
+// Block Dash — V0.1 movement sandbox (brief §34; folder keeps its working name). React owns the page around the canvas; the
 // engine owns the 3D world and reports through the RunBridge.
 export function KeyboardRunScreen({ onExit }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +41,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
   const [mouseCaptured, setMouseCaptured] = useState(false);
   const [timeMs, setTimeMs] = useState(0);
   const [runStarted, setRunStarted] = useState(false);
+  const [sprintUsed, setSprintUsed] = useState(false);
   const [checkpoint, setCheckpoint] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [fell, setFell] = useState(false);
@@ -70,8 +71,9 @@ export function KeyboardRunScreen({ onExit }: Props) {
       onTick: setTimeMs,
       onRunStart: () => {
         setRunStarted(true);
-        track("keyboard_run_start", { stage: sandboxStage.id });
+        track("block_dash_start", { stage: sandboxStage.id });
       },
+      onSprintUsed: () => setSprintUsed(true),
       onCheckpoint: (index, total) => {
         setCheckpoint(index);
         setToast(`🚩 Checkpoint ${index} of ${total}!`);
@@ -84,7 +86,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
         if (improved) bestRef.current = ms;
         setBestMs(bestRef.current);
         setIsNewBest(improved);
-        track("keyboard_run_finish", { stage: sandboxStage.id, seconds: Math.round(ms / 100) / 10 });
+        track("block_dash_finish", { stage: sandboxStage.id, seconds: Math.round(ms / 100) / 10 });
       },
       onFell: () => {
         setFell(true);
@@ -119,7 +121,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
         setStatus("ready");
         container.focus();
       } catch (error) {
-        console.error("Keyboard Run failed to start", error);
+        console.error("Block Dash failed to start", error);
         if (!cancelled) setStatus("error");
       }
     })();
@@ -168,7 +170,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
         ref={containerRef}
         className="absolute inset-0 outline-none"
         tabIndex={-1}
-        aria-label="Keyboard Run game. Use W A S D to move, Space to jump, Shift to sprint."
+        aria-label="Block Dash game. Use W A S D to move, Space to jump, Shift to sprint."
       />
 
       {status === "ready" && (
@@ -178,6 +180,7 @@ export function KeyboardRunScreen({ onExit }: Props) {
           checkpointTotal={checkpointTotal}
           runStarted={runStarted}
           mouseCaptured={mouseCaptured}
+          showSprintHint={runStarted && !sprintUsed && finishMs === null}
           onExit={onExit}
           onPause={() => engineRef.current?.pause()}
         />

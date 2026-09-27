@@ -32,6 +32,24 @@ function run(sim: Simulation, seconds: number, inp: SimInput | ((t: number) => S
 
 const fmt = (n: number) => n.toFixed(2);
 
+// Positions come from the stage data, so these checks survive course edits.
+const PARTS = layoutStage(sandboxStage);
+const part = (id: string) => {
+  const p = PARTS.find((x) => x.id === id);
+  if (!p) throw new Error(`No stage part "${id}"`);
+  return p;
+};
+/** The point on top of a part (feet position), at its centre. */
+const onTop = (id: string): [number, number, number] => {
+  const p = part(id);
+  return [p.center[0], p.center[1] + p.size[1] / 2, p.center[2]];
+};
+/** A zone's floor point (where respawns put your feet). */
+const zoneFloor = (id: string): [number, number, number] => {
+  const p = part(id);
+  return [p.center[0], p.center[1] - p.size[1] / 2, p.center[2]];
+};
+
 // --- Stage data --------------------------------------------------------------
 {
   const parts = layoutStage(sandboxStage);
@@ -51,7 +69,7 @@ const fmt = (n: number) => n.toFixed(2);
   run(sim, 3);
   check("Player lands and rests on the start road", sim.grounded && Math.abs(sim.feetY) < 0.1, `feetY=${fmt(sim.feetY)}`);
   check("Standing still does not start the timer", !sim.runStarted && sim.runTimeMs === 0);
-  run(sim, 0.4, input({ moveZ: -1 }));
+  run(sim, 0.25, input({ moveZ: -1 }));
   run(sim, 0.5);
   check("Walking backward stays on the ground (no fall-through)", sim.grounded && Math.abs(sim.feetY) < 0.1, `feetY=${fmt(sim.feetY)}`);
 }
@@ -70,6 +88,7 @@ const fmt = (n: number) => n.toFixed(2);
     }
     heights.push(peak);
   }
+  // Rising uses plain gravity (the fall multiplier only applies on the way down).
   const expected = playerMovement.jumpForce ** 2 / (2 * playerMovement.gravity);
   check("Jump reaches the expected height", Math.abs(heights[0] - expected) < 0.25, `peak=${fmt(heights[0])} expected≈${fmt(expected)}`);
   check("Jumps are consistent", Math.max(...heights) - Math.min(...heights) < 0.02, heights.map(fmt).join(", "));
@@ -88,7 +107,8 @@ const fmt = (n: number) => n.toFixed(2);
 
   // Coyote time: jump pressed just after walking off an edge still fires.
   const edge = fresh();
-  edge.placeAt([3.2, 0, 0]);
+  const roadHalfWidth = part("start-road").size[0] / 2;
+  edge.placeAt([roadHalfWidth - 0.3, 0, 0]);
   run(edge, 0.5);
   let t = 0;
   while (edge.grounded && t < 2) {
@@ -176,7 +196,9 @@ const fmt = (n: number) => n.toFixed(2);
 // --- Treadmill ---------------------------------------------------------------
 {
   const sim = fresh();
-  sim.placeAt([0, 1.6, 67]);
+  // Start near the far end: the belt pushes hard, and we measure for 1.5 s.
+  const belt = onTop("treadmill");
+  sim.placeAt([belt[0], belt[1], belt[2] + part("treadmill").size[2] / 2 - 1.5]);
   run(sim, 0.5);
   const z0 = sim.position[2];
   run(sim, 1);
@@ -190,7 +212,7 @@ const fmt = (n: number) => n.toFixed(2);
 // --- Speed pad ---------------------------------------------------------------
 {
   const sim = fresh();
-  sim.placeAt([0, 1.6, 57.5]);
+  sim.placeAt(zoneFloor("speed-pad"));
   run(sim, 0.3);
   run(sim, 0.4, input({ moveZ: 1 }));
   const speed = Math.hypot(sim.motion.vx, sim.motion.vz);
@@ -210,16 +232,52 @@ const fmt = (n: number) => n.toFixed(2);
   check("Falling key resets to its place", key.fallPhase === "idle" && Math.abs(key.position[1] - key.part.center[1]) < 1e-6);
 }
 
+// --- The course can be cleared --------------------------------------------
+/** Runs from the top of `fromId` toward `toId` (sprinting if asked), jumps, and reports where it lands. */
+function hop(fromId: string, toId: string, opts: { sprint?: boolean; runUpSec?: number } = {}): string | null {
+  const sim = fresh();
+  const from = onTop(fromId);
+  const to = onTop(toId);
+  sim.placeAt(from);
+  run(sim, 0.3);
+  const yaw = Math.atan2(to[0] - from[0], to[2] - from[2]);
+  const go = input({ moveZ: 1, yaw, sprint: opts.sprint ?? false });
+  run(sim, opts.runUpSec ?? 0.1, go);
+  sim.step({ ...go, jumpPressed: true, jumpHeld: true });
+  // Hold forward until landed (or given up).
+  for (let i = 0; i < 120 && !(sim.grounded && sim.motion.vy === 0 && i > 5); i++) sim.step({ ...go, jumpHeld: true });
+  const landed = sim.groundPartId;
+  sim.dispose();
+  return landed;
+}
+{
+  const stones = PARTS.filter((p) => p.id.startsWith("hop-")).map((p) => p.id);
+  const failed = stones.slice(0, -1).filter((id, i) => hop(id, stones[i + 1]) !== stones[i + 1]);
+  check("Every DASH stepping-stone hop lands on the next stone (walking)", failed.length === 0, `missed after: ${failed.join(", ")}`);
+
+  const climb = PARTS.filter((p) => p.id.startsWith("climb-")).map((p) => p.id);
+  // Row-major, 2 columns: climb-0 → climb-2 → climb-4 → climb-6 (same column, one row up each time).
+  const col = climb.filter((_, i) => i % 2 === 0);
+  // The jump is strong enough to skip a step, so "cleared" = landed on anything higher.
+  const topOf = (id: string | null) => (id ? onTop(id)[1] : -Infinity);
+  const climbFailed = col.slice(0, -1).filter((id, i) => topOf(hop(id, col[i + 1])) <= topOf(id));
+  check("Every tall climb step can be jumped up", climbFailed.length === 0, `stuck on: ${climbFailed.join(", ")}`);
+
+  const step = part("climb-2").center[1] - part("climb-0").center[1];
+  check("Climb steps are too tall to just walk up", step > 0.45, fmt(step));
+}
+
 // --- Checkpoints + fall respawn ---------------------------------------------
 {
   const sim = fresh();
-  sim.placeAt([0, 1.6, 39.2]);
+  const cp1 = zoneFloor("checkpoint-1");
+  sim.placeAt(cp1);
   const events = run(sim, 0.3);
   check("Checkpoint activates", sim.activeCheckpoint === 1 && events.some((e) => e.type === "checkpoint" && e.index === 1));
   // Walk off the side of the checkpoint deck.
   const fell = [...run(sim, 2, input({ moveX: 1 })), ...run(sim, 1.5)];
   check("Falling triggers a respawn", fell.some((e) => e.type === "fell") && fell.some((e) => e.type === "respawn" && e.reason === "fell"));
-  check("Respawn lands on the checkpoint", Math.abs(sim.position[2] - 39.2) < 0.5 && Math.abs(sim.feetY - 1.6) < 0.1, `z=${fmt(sim.position[2])} feet=${fmt(sim.feetY)}`);
+  check("Respawn lands on the checkpoint", Math.abs(sim.position[2] - cp1[2]) < 0.5 && Math.abs(sim.feetY - cp1[1]) < 0.1, `z=${fmt(sim.position[2])} feet=${fmt(sim.feetY)}`);
 
   // Respawn waits for the configured delay.
   const d = fresh();
@@ -230,14 +288,15 @@ const fmt = (n: number) => n.toFixed(2);
   // Manual respawn (R) is instant and returns to the checkpoint.
   sim.placeAt([0, 0, 0]);
   sim.respawnNow();
-  check("Manual respawn returns to the last checkpoint", Math.abs(sim.position[2] - 39.2) < 0.01);
+  check("Manual respawn returns to the last checkpoint", Math.abs(sim.position[2] - cp1[2]) < 0.01);
 }
 
 // --- Finish + restart --------------------------------------------------------
 {
   const sim = fresh();
   run(sim, 0.5, input({ moveZ: 1 }));
-  sim.placeAt([0, 7.6, 98]);
+  const finish = zoneFloor("finish");
+  sim.placeAt([finish[0], finish[1], finish[2] - 3]);
   const events = run(sim, 1, input({ moveZ: 1 }));
   const finishes = events.filter((e) => e.type === "finish");
   check("Finish fires", finishes.length === 1 && sim.finished);

@@ -9,6 +9,8 @@ export interface PlayerMovementConfig {
   jumpForce: number;
   /** Downward acceleration, m/s². */
   gravity: number;
+  /** Gravity is multiplied by this while falling, so jumps feel snappy, not floaty. */
+  fallGravityMultiplier: number;
   /** Fraction of ground acceleration available in the air (0–1). */
   airControl: number;
   /** Pause before a fallen player reappears. Manual respawn (R) is instant. */
@@ -26,19 +28,22 @@ export interface PlayerMovementConfig {
   maxFallSpeed: number;
 }
 
+// V0.1 play-test (Zoya): "too slow", "too floaty". V0 was base 6, jump 8,
+// gravity 20, no fall multiplier, air control 0.65, accel 60 / decel 70.
 export const playerMovement: PlayerMovementConfig = {
-  baseSpeed: 6,
+  baseSpeed: 8,
   sprintMultiplier: 1.6,
-  jumpForce: 8,
-  gravity: 20,
-  airControl: 0.65,
+  jumpForce: 10.5,
+  gravity: 30,
+  fallGravityMultiplier: 1.6,
+  airControl: 0.75,
   respawnDelayMs: 800,
-  groundAcceleration: 60,
-  groundDeceleration: 70,
+  groundAcceleration: 80,
+  groundDeceleration: 90,
   coyoteTimeMs: 100,
   jumpBufferMs: 120,
   jumpCutMultiplier: 0.5,
-  maxFallSpeed: 30,
+  maxFallSpeed: 35,
 };
 
 /** Capsule the physics engine moves. The block character is drawn around it. */

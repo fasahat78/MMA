@@ -96,7 +96,10 @@ export function nextMotion(
     jumpRising = false;
   }
 
-  if (!grounded || jumped) vy = Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
+  if (!grounded || jumped) {
+    const gravity = vy < 0 ? cfg.gravity * cfg.fallGravityMultiplier : cfg.gravity;
+    vy = Math.max(vy - gravity * dt, -cfg.maxFallSpeed);
+  }
 
   return {
     state: {

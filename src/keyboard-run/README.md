@@ -1,7 +1,25 @@
-# Keyboard Run — V0 movement sandbox
+# Block Dash — V0.1 movement sandbox
 
 A 3D keyboard obstacle course, built to answer one question: **does moving around feel fun?**
-Open it from the **Keyboard Run** card on the vqvb.com home page, or go to `#/play/keyboard-run`.
+Open it from the **Block Dash** card on the vqvb.com home page, or go to `#/play/block-dash`.
+The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its working name, `keyboard-run/`.
+
+## Play-test log
+
+**V0 (2026-09-27).** Zoya's feedback:
+- rated it 3/5 and retried on her own;
+- running felt too slow, jumping too floaty, and the course too easy;
+- "why so few keys?";
+- never used sprint or the mouse;
+- fell most on the falling keys, which were also her least favourite part.
+
+**V0.1 changes:**
+- **Faster movement:** base speed 6 → 8.
+- **Snappier jump:** gravity 20 → 30, plus 1.6× gravity on the way down; jump force 8 → 10.5.
+- **Course rebuilt around keys:** bigger keycaps, a zig-zag DASH hop, a SPACE-bar bridge, a jump-up climb and an ENTER finish.
+- **Sprint hint:** shown until she first sprints.
+- **Fairer falling keys:** a 0.75 s warning with a red glow, and a checkpoint just before them.
+- **Renamed** to Block Dash.
 
 ## Tuning
 

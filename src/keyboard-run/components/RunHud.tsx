@@ -6,6 +6,8 @@ interface Props {
   checkpointTotal: number;
   runStarted: boolean;
   mouseCaptured: boolean;
+  /** Show the "hold Shift" nudge (V0 play-test: sprint was never found). */
+  showSprintHint: boolean;
   onExit: () => void;
   onPause: () => void;
 }
@@ -13,7 +15,7 @@ interface Props {
 const pill = "rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md backdrop-blur";
 
 // Always-on overlay: exit, run clock, checkpoint progress, control hints.
-export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, onExit, onPause }: Props) {
+export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseCaptured, showSprintHint, onExit, onPause }: Props) {
   return (
     <>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -58,6 +60,14 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, runStarted, mouseC
           <ControlsCard />
         )}
       </div>
+
+      {showSprintHint && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center">
+          <div className="animate-pulse rounded-full bg-amber-300 px-5 py-2 text-lg font-extrabold text-amber-950 shadow-lg motion-reduce:animate-none">
+            ⚡ Hold <kbd className="rounded-md bg-white px-2 py-0.5 font-mono text-base ring-1 ring-amber-500">SHIFT</kbd> to sprint!
+          </div>
+        </div>
+      )}
 
       {!mouseCaptured && runStarted && (
         <div className="pointer-events-none absolute bottom-3 right-3 rounded-2xl bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-600 shadow backdrop-blur">

@@ -103,10 +103,13 @@ function expand(def: ObstacleDef, checkpointIndex: number): Part[] {
 
 function expandKeyboardRun(def: Extract<ObstacleDef, { type: "keyboard-run" }>): Part[] {
   const [ox, oy, oz] = def.origin;
-  const pitch = def.keySize + def.gap;
+  const depth = def.keyDepth ?? def.keySize;
+  const pitchX = def.keySize + def.gap;
+  const pitchZ = depth + def.gap;
   const parts: Part[] = [];
   for (let row = 0; row < def.rows; row++) {
     const top = oy + def.stepUp * (row + 1);
+    const shift = def.rowOffsets?.[row] ?? 0;
     for (let col = 0; col < def.columns; col++) {
       const i = row * def.columns + col;
       parts.push({
@@ -114,8 +117,8 @@ function expandKeyboardRun(def: Extract<ObstacleDef, { type: "keyboard-run" }>):
         kind: "static",
         obstacleType: def.type,
         // Column 0 on the player's left: looking down +Z, left is +X.
-        center: [ox + ((def.columns - 1) / 2 - col) * pitch, top - def.keyHeight / 2, oz + row * pitch + def.keySize / 2],
-        size: [def.keySize, def.keyHeight, def.keySize],
+        center: [ox + shift + ((def.columns - 1) / 2 - col) * pitchX, top - def.keyHeight / 2, oz + row * pitchZ + depth / 2],
+        size: [def.keySize, def.keyHeight, depth],
         label: def.labels[i % def.labels.length],
       });
     }

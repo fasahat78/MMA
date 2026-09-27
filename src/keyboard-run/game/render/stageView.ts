@@ -12,7 +12,10 @@ const mat = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0, ...extra });
 
 // BoxGeometry material slots: +x, -x, +y (top), -y, +z, -z.
-const FALLING_SHAKE = 0.05;
+const FALLING_SHAKE = 0.08;
+const FALLING_WARNING = new THREE.Color("#ff3b30");
+const FALLING_WARNING_INTENSITY = 0.45;
+const BLACK = new THREE.Color("#000000");
 
 interface Animated {
   update(sim: Simulation, alpha: number, dt: number): void;
@@ -81,7 +84,9 @@ export class StageView {
   }
 
   /** Keeps a mesh on its dynamic part, interpolated between physics steps. */
-  private follow(part: Part, object: THREE.Object3D): void {
+  private follow(part: Part, object: THREE.Mesh): void {
+    const materials = (Array.isArray(object.material) ? object.material : [object.material]) as THREE.MeshStandardMaterial[];
+    let warned = false;
     this.animated.push({
       update: (sim, alpha) => {
         const d = sim.dynamicPart(part.id);
@@ -91,10 +96,18 @@ export class StageView {
           THREE.MathUtils.lerp(d.prevPosition[1], d.position[1], alpha),
           THREE.MathUtils.lerp(d.prevPosition[2], d.position[2], alpha),
         );
-        // Falling keys wobble as a warning before they drop.
-        if (d.fallPhase === "armed" && !this.reducedMotion) {
+        // Falling keys glow red (and wobble, unless reduced motion) before they drop.
+        const armed = d.fallPhase === "armed";
+        if (armed && !this.reducedMotion) {
           object.position.x += (Math.random() - 0.5) * FALLING_SHAKE;
           object.position.z += (Math.random() - 0.5) * FALLING_SHAKE;
+        }
+        if (armed !== warned) {
+          warned = armed;
+          for (const m of materials) {
+            m.emissive.copy(armed ? FALLING_WARNING : BLACK);
+            m.emissiveIntensity = armed ? FALLING_WARNING_INTENSITY : 1;
+          }
         }
       },
     });
@@ -102,7 +115,7 @@ export class StageView {
 
   private addKey(part: Part, cap: string, side: string): void {
     const sideMat = mat(side);
-    const top = part.label ? keyLabelTexture(part.label, cap) : null;
+    const top = part.label ? keyLabelTexture(part.label, cap, part.size[2] / part.size[0]) : null;
     if (top) {
       // Upright for a player looking down +Z.
       top.center.set(0.5, 0.5);

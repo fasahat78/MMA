@@ -30,8 +30,8 @@ export default function App() {
     setMusicTrack(musicTrackId);
   }, [musicTrackId]);
 
-  // Keyboard Run V0 (3D, keyboard-first).
-  if (path.startsWith("/play/keyboard-run")) {
+  // Block Dash (3D, keyboard-first). The V0 address still works.
+  if (path.startsWith("/play/block-dash") || path.startsWith("/play/keyboard-run")) {
     return <KeyboardRunScreen onExit={() => navigate("/")} />;
   }
 
@@ -68,7 +68,7 @@ export default function App() {
       <HubScreen
         onPlayGame={() => navigate("/game")}
         onOpenStories={() => navigate("/stories")}
-        onPlayKeyboardRun={() => navigate("/play/keyboard-run")}
+        onPlayBlockDash={() => navigate("/play/block-dash")}
       />
     </div>
   );

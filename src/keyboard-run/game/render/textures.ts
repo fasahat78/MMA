@@ -7,11 +7,15 @@ import { palette } from "./palette";
 const FONT = `"Baloo 2", "Arial Rounded MT Bold", system-ui, sans-serif`;
 const MESSAGES: readonly string[] = KEYBOARD_MESSAGES;
 
-function canvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
+function canvasTexture(
+  size: number,
+  draw: (ctx: CanvasRenderingContext2D, size: number, height: number) => void,
+  height = size,
+): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = size;
-  canvas.height = size;
-  draw(canvas.getContext("2d")!, size);
+  canvas.height = height;
+  draw(canvas.getContext("2d")!, size, height);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
@@ -39,15 +43,21 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, box: number): { li
   return best;
 }
 
-/** Top face of a keycap: rounded inset and the label. */
-export function keyLabelTexture(label: KeyLabel, capColor: string): THREE.CanvasTexture {
-  return canvasTexture(256, (ctx, s) => {
+const MAX_KEY_ASPECT = 8;
+
+/**
+ * Top face of a keycap: rounded inset and the label. `aspect` = depth / width
+ * of the key, so long keys (SPACE) get a long canvas instead of stretched text.
+ */
+export function keyLabelTexture(label: KeyLabel, capColor: string, aspect = 1): THREE.CanvasTexture {
+  const height = Math.round(256 * Math.min(MAX_KEY_ASPECT, Math.max(1, aspect)));
+  return canvasTexture(256, (ctx, s, h) => {
     ctx.fillStyle = capColor;
-    ctx.fillRect(0, 0, s, s);
+    ctx.fillRect(0, 0, s, h);
     // Dished centre to read as a keycap.
     ctx.fillStyle = "rgba(0,0,0,0.05)";
     ctx.beginPath();
-    ctx.roundRect(s * 0.08, s * 0.08, s * 0.84, s * 0.84, s * 0.12);
+    ctx.roundRect(s * 0.08, s * 0.08, s * 0.84, h - s * 0.16, s * 0.12);
     ctx.fill();
 
     const isMessage = MESSAGES.includes(label);
@@ -59,9 +69,9 @@ export function keyLabelTexture(label: KeyLabel, capColor: string): THREE.Canvas
     ctx.textBaseline = "middle";
     const lineHeight = px * 1.05;
     lines.forEach((line, i) => {
-      ctx.fillText(line, s / 2, s / 2 + (i - (lines.length - 1) / 2) * lineHeight);
+      ctx.fillText(line, s / 2, h / 2 + (i - (lines.length - 1) / 2) * lineHeight);
     });
-  });
+  }, height);
 }
 
 /** Chevrons pointing along +V; scroll `offset.y` to animate a belt. */

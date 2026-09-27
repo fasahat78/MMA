@@ -5,6 +5,8 @@ export interface RunBridge {
   /** Run clock, throttled to ~10 Hz. */
   onTick: (timeMs: number) => void;
   onRunStart: () => void;
+  /** First time the player sprints (hides the "hold Shift" hint). */
+  onSprintUsed: () => void;
   onCheckpoint: (index: number, total: number) => void;
   onFinish: (timeMs: number) => void;
   onFell: () => void;

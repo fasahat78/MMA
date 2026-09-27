@@ -25,7 +25,11 @@ export interface BridgeDef extends BoxObstacle {
   type: "bridge";
 }
 
-/** A grid of giant keycaps; each row steps up by `stepUp`. */
+/**
+ * A grid of giant keycaps; each row steps up by `stepUp`. With one column,
+ * a wide `gap` and `rowOffsets` it becomes zig-zag stepping stones; with one
+ * key and a long `keyDepth` it is a SPACE-bar bridge.
+ */
 export interface KeyboardRunDef {
   type: "keyboard-run";
   id: string;
@@ -33,10 +37,15 @@ export interface KeyboardRunDef {
   origin: Vec3;
   columns: number;
   rows: number;
+  /** Key width (x). Also its depth unless `keyDepth` is set. */
   keySize: number;
+  /** Key depth along the course (z). Defaults to `keySize`. */
+  keyDepth?: number;
   keyHeight: number;
   gap: number;
   stepUp: number;
+  /** Sideways shift per row (x), for zig-zags. Missing rows are 0. */
+  rowOffsets?: readonly number[];
   /** Row-major, front row first. Content-controlled (brief §15). */
   labels: readonly KeyLabel[];
 }

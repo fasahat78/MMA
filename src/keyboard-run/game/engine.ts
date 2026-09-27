@@ -65,6 +65,7 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
   let lastTick = 0;
   let clockSec = 0;
   let unlockedAt = -Infinity;
+  let sprintSeen = false;
   const playerPos = new THREE.Vector3();
 
   function setPaused(next: boolean): void {
@@ -168,6 +169,10 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
       }
       if (steps === MAX_STEPS_PER_FRAME) accumulator = 0;
       forwardEvents();
+      if (!sprintSeen && sim.isSprinting) {
+        sprintSeen = true;
+        bridge.onSprintUsed();
+      }
     }
 
     const alpha = paused ? 1 : accumulator / SIM_STEP_SEC;

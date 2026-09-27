@@ -35,7 +35,7 @@ npm run test:win     # headless Playwright: solves the first maze end-to-end and
                      # verifies Win screen, gems earned, save, next-map unlock
 ```
 
-Keyboard Run (the 3D game at `#/play/keyboard-run`) has its own suites:
+Block Dash (the 3D game at `#/play/block-dash`) has its own suites:
 
 ```bash
 npm run test:keyboard-run-sim  # physics + rules in Node (no browser)

@@ -4,11 +4,11 @@ import { stories } from "../stories/data/stories";
 interface Props {
   onPlayGame: () => void;
   onOpenStories: () => void;
-  onPlayKeyboardRun: () => void;
+  onPlayBlockDash: () => void;
 }
 
 // Site landing page: the front door to everything on vqvb.com.
-export function HubScreen({ onPlayGame, onOpenStories, onPlayKeyboardRun }: Props) {
+export function HubScreen({ onPlayGame, onOpenStories, onPlayBlockDash }: Props) {
   return (
     <div className="min-h-dvh bg-gradient-to-b from-sky-200 via-fuchsia-100 to-amber-100">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col items-center px-6 pb-16 pt-12">
@@ -37,9 +37,9 @@ export function HubScreen({ onPlayGame, onOpenStories, onPlayKeyboardRun }: Prop
             </span>
           </button>
 
-          {/* Keyboard Run (working title — Zoya picks the final name) */}
+          {/* Block Dash — named by Zoya */}
           <button
-            onClick={onPlayKeyboardRun}
+            onClick={onPlayBlockDash}
             className="btn-pop relative flex flex-col items-center rounded-[2rem] bg-gradient-to-b from-indigo-100 to-sky-100 p-8 text-center shadow-xl ring-4 ring-transparent hover:ring-indigo-300"
           >
             <span className="absolute right-5 top-5 rounded-full bg-fuchsia-500 px-2.5 py-0.5 text-xs font-black text-white">
@@ -48,7 +48,7 @@ export function HubScreen({ onPlayGame, onOpenStories, onPlayKeyboardRun }: Prop
             <span className="text-6xl" aria-hidden>
               ⌨️
             </span>
-            <span className="mt-4 text-2xl font-black text-indigo-700">Keyboard Run</span>
+            <span className="mt-4 text-2xl font-black text-indigo-700">Block Dash</span>
             <span className="mt-1 font-bold text-slate-500">
               Run, sprint and jump across giant keys. Needs a keyboard!
             </span>

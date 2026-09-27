@@ -1,12 +1,27 @@
-// Headless browser test for Keyboard Run V0 — the brief's §37 definition of
+// Headless browser test for Block Dash (V0.1) — the brief's §37 definition of
 // done. Expects a server on BASE_URL (default http://localhost:4317/):
 //   npm run build && npm run preview -- --port 4317
 //   npm run test:keyboard-run
 // Uses the `window.__KR_E2E__` seam to read game state and teleport.
 import { chromium } from "playwright";
+// Positions and speeds come from the game's own data, so course edits don't break this.
+import { sandboxStage } from "../src/keyboard-run/data/stages/sandbox.ts";
+import { playerMovement } from "../src/keyboard-run/data/movement.ts";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:4317/";
-const ROUTE = BASE + "#/play/keyboard-run";
+const ROUTE = BASE + "#/play/block-dash";
+const OLD_ROUTE = BASE + "#/play/keyboard-run";
+const zone = (id) => sandboxStage.obstacles.find((o) => o.id === id);
+/** Feet position on a zone's floor. */
+const zoneFloor = (id) => {
+  const z = zone(id);
+  return [z.position[0], z.position[1] - z.size[1] / 2, z.position[2]];
+};
+const CP1 = zoneFloor("checkpoint-1");
+const FINISH = zoneFloor("finish");
+const CHECKPOINTS = sandboxStage.obstacles.filter((o) => o.type === "checkpoint").length;
+const WALK = playerMovement.baseSpeed;
+const SPRINT = WALK * playerMovement.sprintMultiplier;
 const errors = [];
 let failures = 0;
 
@@ -51,9 +66,9 @@ async function holdUntil(key, predicate, arg) {
 
 // 1–2. The home page links to the game; the 3D world and player appear.
 await page.goto(BASE);
-await page.getByRole("button", { name: /Keyboard Run/ }).click();
+await page.getByRole("button", { name: /Block Dash/ }).click();
 await waitReady();
-check("Home page card opens the game", page.url().endsWith("#/play/keyboard-run"));
+check("Home page card opens the game", page.url().endsWith("#/play/block-dash"));
 check("Game route opens with one canvas", (await page.locator("canvas").count()) === 1);
 await until((st) => st.grounded);
 let s = await state();
@@ -65,15 +80,17 @@ check("Controls card is shown", await page.getByText("Get to the FINISH flag").i
 check("W moves the player forward", await holdUntil("KeyW", (st) => st.position[2] > -2));
 s = await state();
 check("Moving starts the timer", s.runTimeMs > 0 && (await timerText()) !== "0:00.00");
+check("Sprint hint appears once running", await page.getByText("to sprint!").isVisible());
 
-// 5. Sprint engages and disengages (speeds from data/movement.ts: 6 and 6 × 1.6).
+// 5. Sprint engages and disengages (speeds from data/movement.ts).
 await teleport([0, 0, -6]);
 await page.keyboard.down("KeyW");
-check("Walking reaches base speed", await until((st) => Math.abs(st.speed - 6) < 0.01));
+check("Walking reaches base speed", await until((st, a) => Math.abs(st.speed - a) < 0.01, WALK));
 await page.keyboard.down("ShiftLeft");
-check("Shift sprints", await until((st) => Math.abs(st.speed - 9.6) < 0.01));
+check("Shift sprints", await until((st, a) => Math.abs(st.speed - a) < 0.01, SPRINT));
+check("Sprint hint goes away after sprinting", await page.getByText("to sprint!").waitFor({ state: "detached" }).then(() => true, () => false));
 await page.keyboard.up("ShiftLeft");
-check("Releasing Shift stops sprinting", await until((st) => Math.abs(st.speed - 6) < 0.01));
+check("Releasing Shift stops sprinting", await until((st, a) => Math.abs(st.speed - a) < 0.01, WALK));
 await page.keyboard.up("KeyW");
 check("Player stops when keys are released", await until((st) => st.speed === 0));
 
@@ -85,19 +102,19 @@ check("Space jumps", await holdUntil("Space", (st, y) => st.position[1] - y > 0.
 check("Player lands after jumping", await until((st, y) => st.grounded && Math.abs(st.position[1] - y) < 0.05, groundY));
 
 // 12. Checkpoint.
-await teleport([0, 1.6, 39.2]);
+await teleport(CP1);
 check("Checkpoint activates", await until((st) => st.checkpoint === 1));
-check("HUD shows checkpoint 1 of 2", await page.getByText("🚩 1/2").isVisible());
+check(`HUD shows checkpoint 1 of ${CHECKPOINTS}`, await page.getByText(`🚩 1/${CHECKPOINTS}`).isVisible());
 
 // 11. Falling respawns at the checkpoint.
-await teleport([0, -20, 39.2]);
-check("Falling respawns at the checkpoint", await until((st) => Math.abs(st.position[2] - 39.2) < 0.5 && st.grounded && st.position[1] > 1.6));
+await teleport([CP1[0], -20, CP1[2]]);
+check("Falling respawns at the checkpoint", await until((st, cp) => Math.abs(st.position[2] - cp[2]) < 0.5 && st.grounded && st.position[1] > cp[1], CP1));
 
 // R returns to the checkpoint instantly.
 await teleport([0, 0, 0]);
 await until((st) => st.grounded);
 await page.keyboard.press("KeyR");
-check("R returns to the last checkpoint", await until((st) => Math.abs(st.position[2] - 39.2) < 0.5));
+check("R returns to the last checkpoint", await until((st, cp) => Math.abs(st.position[2] - cp[2]) < 0.5, CP1));
 
 // Esc pauses (mouse not captured in headless) and resumes.
 await page.keyboard.press("Escape");
@@ -109,7 +126,7 @@ await page.getByRole("button", { name: /Keep going/ }).click();
 check("Resume closes the pause panel", !(await page.getByRole("dialog", { name: "Paused" }).isVisible()));
 
 // 13. Finish line; fires once.
-await teleport([0, 7.6, 97]);
+await teleport([FINISH[0], FINISH[1], FINISH[2] - 3]);
 await holdUntil("KeyW", (st) => st.finished);
 check("Finish panel appears", await page.getByRole("dialog", { name: "Finished" }).isVisible());
 check("Run is marked finished", (await state()).finished);
@@ -124,7 +141,7 @@ await page.getByRole("dialog", { name: "Finished" }).waitFor({ state: "detached"
 s = await state();
 check("Enter restarts the run", !s.finished && s.runTimeMs === 0 && Math.abs(s.position[2] - -5) < 0.2);
 check("Timer resets to 0:00.00", (await timerText()) === "0:00.00");
-check("Checkpoints reset", s.checkpoint === 0 && (await page.getByText("🚩 0/2").isVisible()));
+check("Checkpoints reset", s.checkpoint === 0 && (await page.getByText(`🚩 0/${CHECKPOINTS}`).isVisible()));
 
 // Resizing the window keeps the game playable.
 await page.setViewportSize({ width: 800, height: 600 });
@@ -144,6 +161,11 @@ await until((st) => st.grounded);
 check("Returning to the game shows one fresh canvas", (await page.locator("canvas").count()) === 1 && (await state()).runTimeMs === 0);
 check("Controls work after returning", await holdUntil("KeyD", (st) => Math.abs(st.position[0]) > 0.5));
 
+// The V0 address still opens the game.
+await page.goto(OLD_ROUTE);
+await waitReady();
+check("Old #/play/keyboard-run link still works", (await page.locator("canvas").count()) === 1);
+
 // Keys don't scroll the page while playing.
 check("Page did not scroll", (await page.evaluate(() => window.scrollY)) === 0);
 
@@ -156,5 +178,5 @@ check("Phones do not load the 3D engine", (await phone.locator("canvas").count()
 check("No console errors", errors.length === 0, errors.join(" | "));
 
 await browser.close();
-console.log(failures ? `\n${failures} check(s) failed` : "\nAll keyboard-run browser checks passed");
+console.log(failures ? `\n${failures} check(s) failed` : "\nAll Block Dash browser checks passed");
 process.exit(failures ? 1 : 0);
