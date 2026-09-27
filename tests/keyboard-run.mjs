@@ -49,9 +49,11 @@ async function holdUntil(key, predicate, arg) {
   return ok;
 }
 
-// 1–2. Route opens; the 3D world and player appear.
-await page.goto(ROUTE);
+// 1–2. The home page links to the game; the 3D world and player appear.
+await page.goto(BASE);
+await page.getByRole("button", { name: /Keyboard Run/ }).click();
 await waitReady();
+check("Home page card opens the game", page.url().endsWith("#/play/keyboard-run"));
 check("Game route opens with one canvas", (await page.locator("canvas").count()) === 1);
 await until((st) => st.grounded);
 let s = await state();

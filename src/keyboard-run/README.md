@@ -1,7 +1,7 @@
 # Keyboard Run — V0 movement sandbox
 
 A 3D keyboard obstacle course, built to answer one question: **does moving around feel fun?**
-It is unlisted: open it at `#/play/keyboard-run`. It does not appear on the hub until it has been play-tested.
+Open it from the **Keyboard Run** card on the vqvb.com home page, or go to `#/play/keyboard-run`.
 
 ## Tuning
 

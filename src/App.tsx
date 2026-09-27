@@ -30,7 +30,7 @@ export default function App() {
     setMusicTrack(musicTrackId);
   }, [musicTrackId]);
 
-  // Keyboard Run V0 — unlisted on the hub until it has been play-tested.
+  // Keyboard Run V0 (3D, keyboard-first).
   if (path.startsWith("/play/keyboard-run")) {
     return <KeyboardRunScreen onExit={() => navigate("/")} />;
   }
@@ -65,7 +65,11 @@ export default function App() {
 
   return (
     <div className="min-h-dvh w-full">
-      <HubScreen onPlayGame={() => navigate("/game")} onOpenStories={() => navigate("/stories")} />
+      <HubScreen
+        onPlayGame={() => navigate("/game")}
+        onOpenStories={() => navigate("/stories")}
+        onPlayKeyboardRun={() => navigate("/play/keyboard-run")}
+      />
     </div>
   );
 }
