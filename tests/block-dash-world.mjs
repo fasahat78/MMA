@@ -35,8 +35,8 @@ await page.getByRole("button", { name: /Block Dash/ }).click();
 check("Card opens the World 1 map", await shows(heading()));
 check("New player has 0 Wins", await shows(winsBadge(0)));
 check("Stage 1 is open", await page.getByRole("button", { name: "Play stage 1" }).isEnabled());
-const lockedCount = await page.getByRole("button", { name: /Stage \d is locked/ }).count();
-check("Stages 2–5 are locked", lockedCount === 4, `${lockedCount} locked`);
+const lockedCount = await page.getByRole("button", { name: /Stage \d+ is locked/ }).count();
+check(`Stages 2–${world1.stages.length} are locked`, lockedCount === world1.stages.length - 1, `${lockedCount} locked`);
 check("Map shows the Wins each stage pays", (await page.getByText("+16 Wins").isVisible()) && (await page.getByText("+1 Win").isVisible()));
 
 // A locked stage's address goes back to the map.
@@ -69,7 +69,7 @@ check("Enter goes to Stage 2", page.url().endsWith("#/play/block-dash/stage/w1-s
 await page.getByRole("button", { name: "Back to the World 1 map" }).click();
 check("Map now shows 1 Win", await shows(winsBadge(1)));
 check("Stage 1 is marked done with a best time", (await shows(page.getByText("✓ Done"))) && (await page.getByText("✓ Done").count()) === 1 && (await page.getByText(/^Best \d:\d\d\.\d\d$/).count()) === 1);
-check("Stage 2 is open, 3 still locked", (await page.getByRole("button", { name: "Play stage 2" }).isEnabled()) && (await page.getByRole("button", { name: /Stage \d is locked/ }).count()) === 3);
+check(`Stage 2 is open, ${world1.stages.length - 2} still locked`, (await page.getByRole("button", { name: "Play stage 2" }).isEnabled()) && (await page.getByRole("button", { name: /Stage \d+ is locked/ }).count()) === world1.stages.length - 2);
 
 // Progress survives a reload.
 await page.reload();
@@ -80,7 +80,7 @@ check("Progress is saved after reloading", (await shows(winsBadge(1))) && (await
 const otherTab = await context.newPage();
 await otherTab.goto(BASE + "#/play/block-dash");
 await otherTab.getByRole("heading", { name: "World 1" }).waitFor();
-const lockedBefore = await otherTab.getByRole("button", { name: /Stage \d is locked/ }).count();
+const lockedBefore = await otherTab.getByRole("button", { name: /Stage \d+ is locked/ }).count();
 await page.goto(BASE + "#/play/block-dash/stage/w1-s2");
 await page.waitForFunction(() => !!window.__KR__, null, { timeout: 30000 });
 const s2 = world1.stages[1];
@@ -94,7 +94,7 @@ const updated = await otherTab
   .getByRole("button", { name: "Play stage 3" })
   .waitFor({ timeout: 5000 })
   .then(() => true, () => false);
-check("A map open in another tab unlocks Stage 3 without reloading", lockedBefore === 3 && updated, `locked before: ${lockedBefore}`);
+check("A map open in another tab unlocks Stage 3 without reloading", lockedBefore === world1.stages.length - 2 && updated, `locked before: ${lockedBefore}`);
 check("Stepping onto the ENTER key finishes (whole key is the finish line)", await shows(page.getByRole("dialog", { name: "Finished" })));
 await otherTab.close();
 

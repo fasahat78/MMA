@@ -98,8 +98,9 @@ function bands(parts: readonly Part[]) {
   return merged;
 }
 
-check("World 1 has 5 stages", world1.stages.length === 5);
-check("Wins double stage to stage (1, 2, 4, 8, 16)", world1.stages.map((s) => s.winReward).join() === "1,2,4,8,16" && winsForStage(6) === 32);
+check("World 1 has 10 stages", world1.stages.length === 10);
+check("Wins double stage to stage (1, 2, 4 … 512)", world1.stages.map((s) => s.winReward).join() === "1,2,4,8,16,32,64,128,256,512" && winsForStage(11) === 1024);
+check("Recommended levels rise stage to stage", world1.stages.every((s, i, all) => i === 0 || s.recommendedLevel > all[i - 1].recommendedLevel));
 check("Stages get longer", world1.stages.every((s, i, all) => i === 0 || finishZ(s) > finishZ(all[i - 1])));
 
 function finishZ(s: StageDefinition) {

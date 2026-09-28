@@ -69,7 +69,7 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
                   <span className={`text-6xl font-black leading-none ${open ? "text-indigo-700" : "text-slate-400"}`}>
                     {open ? stage.stageNumber : "🔒"}
                   </span>
-                  <span className="mt-2 rounded-full bg-amber-100 px-3 py-1 text-sm font-black text-amber-800">
+                  <span className="mt-2 whitespace-nowrap rounded-full bg-amber-100 px-3 py-1 text-sm font-black text-amber-800">
                     🏆 +{stage.winReward} {stage.winReward === 1 ? "Win" : "Wins"}
                   </span>
                   <span className="min-h-5 text-sm font-bold text-slate-500 tabular-nums">
