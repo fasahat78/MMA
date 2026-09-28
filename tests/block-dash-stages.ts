@@ -50,7 +50,8 @@ function hop(stage: StageDefinition, from: Part, to: Part, player: "beginner" | 
   run(sim, 0.1, go);
   sim.step({ ...go, jumpPressed: true, jumpHeld: true });
   for (let i = 0; i < 120 && !(sim.grounded && sim.motion.vy === 0 && i > 5); i++) {
-    const left = Math.hypot(to.center[0] - sim.position[0], to.center[2] - sim.position[2]);
+    // Signed distance along the jump: past the target it goes negative, so the player keeps braking.
+    const left = (to.center[0] - sim.position[0]) * Math.sin(yaw) + (to.center[2] - sim.position[2]) * Math.cos(yaw);
     const speed = Math.hypot(sim.motion.vx, sim.motion.vz);
     const stopping = speed ** 2 / (2 * AIR_DECEL);
     const input = player === "skilled" && !sim.grounded && stopping >= left ? brake : go;
@@ -98,8 +99,8 @@ function bands(parts: readonly Part[]) {
   return merged;
 }
 
-check("World 1 has 10 stages", world1.stages.length === 10);
-check("Wins double stage to stage (1, 2, 4 … 512)", world1.stages.map((s) => s.winReward).join() === "1,2,4,8,16,32,64,128,256,512" && winsForStage(11) === 1024);
+check("World 1 has 14 stages", world1.stages.length === 14);
+check("Wins double stage to stage (1, 2, 4 … 8192)", world1.stages.every((s, i) => s.winReward === 2 ** i) && winsForStage(15) === 16384);
 check("Recommended levels rise stage to stage", world1.stages.every((s, i, all) => i === 0 || s.recommendedLevel > all[i - 1].recommendedLevel));
 check("Stages get longer", world1.stages.every((s, i, all) => i === 0 || finishZ(s) > finishZ(all[i - 1])));
 

@@ -29,7 +29,8 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
   - Stages 1–2 are beginner stages: holding forward and jumping lands every stepping stone.
   - Stage 3 is the V0.1 course.
   - Stages 4–5 expect some control in mid-air.
-- **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4, 8, 16. They're paid on every finish, Roblox-style.
+  - Stages 6–14 reuse the same parts, faster, narrower and longer, ending with the Stage 14 gauntlet.
+- **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4 … 8,192 for Stage 14. They're paid on every finish, Roblox-style.
 - **Progress** (`state/`): Wins, the unlocked stage and best times are saved on the device in `localStorage` (`block-dash-progress`, versioned).
   - Finishing a stage opens the next one.
   - A locked stage's link falls back to the map.
