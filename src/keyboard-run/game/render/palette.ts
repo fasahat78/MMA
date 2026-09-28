@@ -40,10 +40,10 @@ export const palette = {
 
   backdrop: ["#ff9ecf", "#9ad7ff", "#c5a8ff", "#ffe08a", "#8ef0c8"],
 
-  body: "#2ec4b6",
-  legs: "#3d5a80",
-  head: "#ffd7b5",
-  eyes: "#1d1b33",
-  cheeks: "#ff8fb1",
-  shoes: "#ffffff",
+  mazeWallCap: "#fbf7ff",
+  mazeWallSide: "#c9bff0",
+  mazeFloor: "#8f96da",
+  bossCap: "#ff5c8a",
+  bossSide: "#d93a6a",
+  bossFace: "#fff3f7",
 } as const;

@@ -99,10 +99,12 @@ function bands(parts: readonly Part[]) {
   return merged;
 }
 
-check("World 1 has 14 stages", world1.stages.length === 14);
-check("Wins double stage to stage (1, 2, 4 … 8192)", world1.stages.every((s, i) => s.winReward === 2 ** i) && winsForStage(15) === 16384);
+check("World 1 has 15 stages", world1.stages.length === 15);
+check("Wins double stage to stage (1, 2, 4 … 16384)", world1.stages.every((s, i) => s.winReward === 2 ** i) && winsForStage(15) === 16384);
 check("Recommended levels rise stage to stage", world1.stages.every((s, i, all) => i === 0 || s.recommendedLevel > all[i - 1].recommendedLevel));
-check("Stages get longer", world1.stages.every((s, i, all) => i === 0 || finishZ(s) > finishZ(all[i - 1])));
+// Obstacle courses get longer; the Stage 15 maze is compact on purpose (tests/block-dash-maze.ts).
+const courses = world1.stages.filter((s) => s.stageType === "standard");
+check("Courses get longer (stages 1–14)", courses.length === 14 && courses.every((s, i) => i === 0 || finishZ(s) > finishZ(courses[i - 1])));
 
 function finishZ(s: StageDefinition) {
   return s.obstacles.find((o) => o.type === "finish")!.position[2];

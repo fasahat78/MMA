@@ -96,6 +96,37 @@ export interface FallingKeysDef {
   labels: readonly KeyLabel[];
 }
 
+/**
+ * A maze of tall keycaps on a floor. `grid` rows run front (entry side)
+ * first; column 0 is on the player's left (+X), like keyboard-run keys.
+ * `#` is a wall key; any other character is open floor (`B` = boss home).
+ */
+export interface MazeDef {
+  type: "maze";
+  id: string;
+  /** x = centre, y = floor top, z = front edge. */
+  origin: Vec3;
+  cellSize: number;
+  wallHeight: number;
+  grid: readonly string[];
+  labels: readonly KeyLabel[];
+}
+
+/** A giant key that wakes when you enter its maze and chases you through it. */
+export interface BossDef {
+  type: "boss";
+  id: string;
+  mazeId: string;
+  /** Metres per second along the maze paths. */
+  speed: number;
+  /** Seconds after you step into the maze before it moves. */
+  headStartSec: number;
+  /** Closer than this (centre to centre, metres) and you're caught. */
+  catchRadius: number;
+  /** Edge length of the boss keycap. */
+  size: number;
+}
+
 /** Trigger zones. `position` is the zone centre; its floor is the respawn height. */
 export interface CheckpointDef extends BoxObstacle {
   type: "checkpoint";
@@ -115,7 +146,9 @@ export type ObstacleDef =
   | SpeedPadDef
   | FallingKeysDef
   | CheckpointDef
-  | FinishDef;
+  | FinishDef
+  | MazeDef
+  | BossDef;
 
 export type ObstacleType = ObstacleDef["type"];
 

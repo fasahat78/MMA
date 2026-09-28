@@ -82,7 +82,7 @@ export function FinishPanel({
         <p className="font-bold text-slate-500">Best: {formatRunTime(bestMs)}</p>
       )}
       <p className="rounded-2xl bg-amber-100 px-4 py-2 text-lg font-black text-amber-900">
-        🏆 +{winsEarned} {winsEarned === 1 ? "Win" : "Wins"} <span className="text-sm font-bold text-amber-700">· {totalWins} total</span>
+        🏆 +{winsEarned} {winsEarned === 1 ? "Win" : "Wins"} <span className="text-sm font-bold text-amber-700">· {totalWins} to spend</span>
       </p>
       {unlockedStageNumber !== null && hasNextStage && (
         <p className="font-extrabold text-indigo-600">🔓 Stage {unlockedStageNumber} is open!</p>

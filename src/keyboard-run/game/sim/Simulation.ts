@@ -3,6 +3,7 @@ import type { Collider, KinematicCharacterController, RigidBody, World } from "@
 import { playerBody, playerMovement, SIM_STEP_SEC, type PlayerMovementConfig } from "../../data/movement.ts";
 import type { StageDefinition, Vec3 } from "../../types/stage";
 import { layoutStage, type Part } from "../stageLayout.ts";
+import { BossChaser } from "./boss.ts";
 import { DynamicPart } from "./dynamicParts.ts";
 import { nextMotion, NO_INPUT, RESTING, type MotionState, type SimInput } from "./playerMotion.ts";
 
@@ -11,6 +12,7 @@ import { nextMotion, NO_INPUT, RESTING, type MotionState, type SimInput } from "
 // driven the same way by the browser loop and by the Node tests.
 
 type Rapier = typeof RAPIER;
+export type RespawnReason = "fell" | "caught" | "manual";
 type Vec = [number, number, number];
 
 export type SimEvent =
@@ -18,7 +20,9 @@ export type SimEvent =
   | { type: "checkpoint"; index: number; total: number }
   | { type: "finish"; timeMs: number }
   | { type: "fell" }
-  | { type: "respawn"; reason: "fell" | "manual" }
+  | { type: "boss-awake" }
+  | { type: "caught" }
+  | { type: "respawn"; reason: RespawnReason }
   | { type: "run-reset" };
 
 // Offsets from the capsule centre.
@@ -32,6 +36,8 @@ const FACING_MIN_SPEED = 0.5;
 export class Simulation {
   readonly parts: readonly Part[];
   readonly checkpointCount: number;
+  /** Stage 15's chasing BOSS key, if this stage has one. */
+  readonly boss: BossChaser | null;
 
   // Player state, read by the renderer and tests.
   readonly position: Vec = [0, 0, 0];
@@ -48,6 +54,7 @@ export class Simulation {
   finished = false;
   activeCheckpoint = 0;
   respawnTimerSec = 0;
+  private respawnReason: RespawnReason = "fell";
   speedBoostSec = 0;
   private speedBoost = 1;
 
@@ -78,6 +85,10 @@ export class Simulation {
     const checkpoints = this.zones.filter((p) => p.zone?.role === "checkpoint");
     this.checkpointCount = checkpoints.length;
     this.checkpointSpawns = [stage.spawn, ...checkpoints.map((p) => [p.center[0], p.center[1] - p.size[1] / 2, p.center[2]] as const)];
+
+    const bossDef = stage.obstacles.find((o) => o.type === "boss");
+    const maze = bossDef && stage.obstacles.find((o) => o.type === "maze" && o.id === bossDef.mazeId);
+    this.boss = bossDef && maze?.type === "maze" ? new BossChaser(bossDef, maze) : null;
 
     // Gravity is applied by our own movement code, not the engine.
     this.world = new R.World({ x: 0, y: 0, z: 0 });
@@ -122,7 +133,7 @@ export class Simulation {
 
     if (this.respawnTimerSec > 0) {
       this.respawnTimerSec -= dt;
-      if (this.respawnTimerSec <= 0) this.respawnNow("fell");
+      if (this.respawnTimerSec <= 0) this.respawnNow(this.respawnReason);
       else this.holdStill();
       this.world.step();
       return;
@@ -137,9 +148,25 @@ export class Simulation {
     this.speedBoostSec = Math.max(0, this.speedBoostSec - dt);
 
     if (this.position[1] - FEET_TO_CENTER < this.stage.killPlaneY) {
-      this.respawnTimerSec = this.cfg.respawnDelayMs / 1000;
+      this.startRespawn("fell");
       this.events.push({ type: "fell" });
+    } else if (this.boss && !this.finished) {
+      this.stepBoss(dt);
     }
+  }
+
+  private stepBoss(dt: number): void {
+    const event = this.boss!.step(dt, [this.position[0], this.feetY, this.position[2]]);
+    if (event === "awake") this.events.push({ type: "boss-awake" });
+    if (event === "caught") {
+      this.startRespawn("caught");
+      this.events.push({ type: "caught" });
+    }
+  }
+
+  private startRespawn(reason: RespawnReason): void {
+    this.respawnReason = reason;
+    this.respawnTimerSec = this.cfg.respawnDelayMs / 1000;
   }
 
   private maybeStartRun(input: SimInput): void {
@@ -252,9 +279,10 @@ export class Simulation {
   }
 
   /** R key: straight back to the last checkpoint. */
-  respawnNow(reason: "fell" | "manual" = "manual"): void {
+  respawnNow(reason: RespawnReason = "manual"): void {
     this.respawnTimerSec = 0;
     this.speedBoostSec = 0;
+    this.boss?.reset();
     this.placeAt(this.checkpointSpawns[this.activeCheckpoint]);
     this.events.push({ type: "respawn", reason });
   }
@@ -267,6 +295,7 @@ export class Simulation {
     this.activeCheckpoint = 0;
     this.respawnTimerSec = 0;
     this.speedBoostSec = 0;
+    this.boss?.reset();
     for (const part of this.dynamic.values()) if (part.part.fall) part.reset();
     this.placeAt(this.stage.spawn);
     this.events.push({ type: "run-reset" });

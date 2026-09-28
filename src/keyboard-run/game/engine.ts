@@ -1,9 +1,11 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import { SIM_STEP_SEC } from "../data/movement";
+import type { RunnerLook } from "../data/runners";
 import type { StageDefinition, Vec3 } from "../types/stage";
 import type { EngineHandle, RunBridge } from "./bridge";
 import { InputController } from "./input";
+import { BossView } from "./render/bossView";
 import { BlockCharacter } from "./render/character";
 import { CameraRig } from "./render/cameraRig";
 import { StageView } from "./render/stageView";
@@ -23,6 +25,8 @@ export interface EngineOptions {
   reducedMotion: boolean;
   /** Phones/tablets: lighter shadows and resolution to keep the frame rate up. */
   lowPower: boolean;
+  /** The runner chosen on the map (data/runners.ts). */
+  runner: RunnerLook;
 }
 
 /** Test-only seam, inert unless `window.__KR_E2E__` is set before load. */
@@ -37,6 +41,7 @@ interface E2ESeam {
     finished: boolean;
     checkpoint: number;
     paused: boolean;
+    boss: { phase: string; position: number[] } | null;
   };
 }
 declare global {
@@ -57,8 +62,10 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
   const sim = new Simulation(RAPIER, options.stage);
   const world = new RenderWorld(container, options.lowPower);
   const stageView = new StageView(sim.parts, options.reducedMotion);
-  const character = new BlockCharacter();
+  const character = new BlockCharacter(options.runner);
   world.scene.add(stageView.group, character.root);
+  const bossView = sim.boss ? new BossView(sim.boss.def.size) : null;
+  if (bossView) world.scene.add(bossView.root);
   const rig = new CameraRig(1);
 
   let paused = false;
@@ -147,6 +154,12 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
         case "fell":
           bridge.onFell();
           break;
+        case "boss-awake":
+          bridge.onBossAwake();
+          break;
+        case "caught":
+          bridge.onCaught();
+          break;
         case "respawn":
           rig.snap();
           bridge.onRespawn(event.reason);
@@ -189,6 +202,7 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
     character.root.position.copy(playerPos);
     if (!paused) {
       stageView.update(sim, alpha, dt);
+      if (bossView && sim.boss) bossView.update(sim.boss, alpha, dt, stageView.reducedMotion);
       character.update({
         speed: Math.hypot(sim.motion.vx, sim.motion.vz),
         grounded: sim.grounded,
@@ -225,6 +239,7 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
         finished: sim.finished,
         checkpoint: sim.activeCheckpoint,
         paused,
+        boss: sim.boss ? { phase: sim.boss.phase, position: [...sim.boss.position] } : null,
       }),
     };
   }

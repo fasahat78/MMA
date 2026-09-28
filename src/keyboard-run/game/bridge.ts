@@ -10,7 +10,11 @@ export interface RunBridge {
   onCheckpoint: (index: number, total: number) => void;
   onFinish: (timeMs: number) => void;
   onFell: () => void;
-  onRespawn: (reason: "fell" | "manual") => void;
+  /** Stage 15: the BOSS key woke up because you stepped into its maze. */
+  onBossAwake: () => void;
+  /** The BOSS key caught you; a respawn follows. */
+  onCaught: () => void;
+  onRespawn: (reason: "fell" | "caught" | "manual") => void;
   onRunReset: () => void;
   onPauseChange: (paused: boolean) => void;
   onPointerLockChange: (locked: boolean) => void;

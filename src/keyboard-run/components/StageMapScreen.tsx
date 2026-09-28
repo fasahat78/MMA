@@ -1,7 +1,9 @@
+import { useCallback, useState } from "react";
 import { world1 } from "../data/stages/world1";
-import { isStageUnlocked } from "../state/progress";
+import { isStageUnlocked, selectedRunner, walletWins } from "../state/progress";
 import { canSaveProgress, useBlockDashProgress } from "../state/progressStore";
 import { formatRunTime } from "../utils/formatTime";
+import { RunnerShop } from "./RunnerShop";
 
 interface Props {
   onPlay: (stageId: string) => void;
@@ -12,6 +14,10 @@ interface Props {
 // before is finished. Shows Wins, the reward for each stage and best times.
 export function StageMapScreen({ onPlay, onExit }: Props) {
   const progress = useBlockDashProgress();
+  const wallet = walletWins(progress);
+  const runner = selectedRunner(progress);
+  const [shopOpen, setShopOpen] = useState(false);
+  const closeShop = useCallback(() => setShopOpen(false), []);
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-sky-200 via-indigo-100 to-fuchsia-100">
@@ -24,11 +30,20 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
           >
             ← Home
           </button>
-          <div
-            className="rounded-full bg-amber-300 px-4 py-2 text-lg font-black text-amber-950 shadow-md tabular-nums"
-            aria-label={`${progress.wins} Wins`}
-          >
-            🏆 {progress.wins} Wins
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShopOpen(true)}
+              className="btn-pop min-h-[44px] rounded-full bg-white/85 px-4 py-2 font-extrabold text-indigo-700 shadow-md"
+              aria-label={`Runners: you're running as ${runner.name}`}
+            >
+              <span aria-hidden>{runner.emoji}</span> Runners
+            </button>
+            <div
+              className="rounded-full bg-amber-300 px-4 py-2 text-lg font-black text-amber-950 shadow-md tabular-nums"
+              aria-label={`${wallet} Wins`}
+            >
+              🏆 {wallet} Wins
+            </div>
           </div>
         </header>
 
@@ -62,6 +77,9 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
                       : "cursor-not-allowed border-slate-300 bg-slate-100/80 opacity-70"
                   }`}
                 >
+                  {stage.stageType === "maze-boss" && (
+                    <span className="absolute -top-3 left-4 rounded-full bg-pink-500 px-2.5 py-0.5 text-xs font-black text-white shadow">BOSS</span>
+                  )}
                   {done && (
                     <span className="absolute -top-3 right-4 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-black text-white shadow">✓ Done</span>
                   )}
@@ -81,6 +99,7 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
           })}
         </ol>
       </div>
+      {shopOpen && <RunnerShop onClose={closeShop} />}
     </div>
   );
 }

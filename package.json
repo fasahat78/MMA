@@ -17,7 +17,9 @@
     "test:keyboard-run": "node tests/keyboard-run.mjs",
     "test:block-dash-touch": "node tests/block-dash-touch.mjs",
     "test:block-dash-stages": "node tests/block-dash-stages.ts",
-    "test:block-dash-world": "node tests/block-dash-world.mjs"
+    "test:block-dash-world": "node tests/block-dash-world.mjs",
+    "test:block-dash-maze": "node tests/block-dash-maze.ts",
+    "test:block-dash-runners": "node tests/block-dash-runners.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

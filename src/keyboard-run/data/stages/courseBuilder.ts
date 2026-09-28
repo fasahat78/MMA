@@ -1,5 +1,6 @@
 import type { KeyLabel } from "../keyboardMessages";
-import type { ObstacleDef, StageDefinition, Vec3 } from "../../types/stage";
+import type { MazeDef, ObstacleDef, StageDefinition, Vec3 } from "../../types/stage";
+import { findCell, openingsInRow, shortestPath } from "../../game/mazeGrid.ts";
 
 // Lays course sections end to end along +Z so stages can be written as a
 // list of sections ("platform, keys, gap, hop…") instead of hand-placed
@@ -27,6 +28,7 @@ export class CourseBuilder {
   private top = 0;
   private lowest = 0;
   private spawn: Vec3 | null = null;
+  private mazeWidthM: number | null = null;
   /** The most recent flat platform, for checkpoints and speed pads. */
   private last: { x: number; z0: number; z1: number; width: number } | null = null;
 
@@ -234,6 +236,64 @@ export class CourseBuilder {
     return this;
   }
 
+  /**
+   * A maze of tall wall keys on a floor, with a BOSS key living at the `B`
+   * cell. Row 0 of `grid` faces the course so far and needs one opening near
+   * the middle; the last row's opening leads on. Follow it with a platform as
+   * wide as `mazeWidth()` so any exit column meets the rest of the course.
+   */
+  maze(opts: {
+    grid: readonly string[];
+    labels: readonly KeyLabel[];
+    cellSize?: number;
+    wallHeight?: number;
+    boss: { speed: number; headStartSec: number; catchRadius?: number; size?: number };
+  }): this {
+    const cellSize = opts.cellSize ?? 3.2;
+    const id = this.nextId("maze");
+    const maze: MazeDef = {
+      type: "maze",
+      id,
+      origin: [0, this.top, this.z],
+      cellSize,
+      wallHeight: opts.wallHeight ?? 3,
+      grid: opts.grid,
+      labels: opts.labels,
+    };
+    checkMaze(maze);
+    const width = opts.grid[0].length * cellSize;
+    const depth = opts.grid.length * cellSize;
+    this.obstacles.push(
+      {
+        type: "platform",
+        id: this.nextId("platform"),
+        style: this.top > 5 ? "deck" : "landing",
+        position: [0, this.top - PLATFORM_THICKNESS / 2, this.z + depth / 2],
+        size: [width, PLATFORM_THICKNESS, depth],
+      },
+      maze,
+      {
+        type: "boss",
+        id: this.nextId("boss"),
+        mazeId: id,
+        speed: opts.boss.speed,
+        headStartSec: opts.boss.headStartSec,
+        catchRadius: opts.boss.catchRadius ?? 1.4,
+        size: opts.boss.size ?? 2.2,
+      },
+    );
+    this.mazeWidthM = width;
+    this.z += depth;
+    this.last = null;
+    return this;
+  }
+
+  /** Width of the most recent maze, for the platform that follows it. */
+  mazeWidth(): number {
+    if (this.mazeWidthM === null) throw new Error("mazeWidth() must follow maze()");
+    return this.mazeWidthM;
+  }
+
   /** The finish: a giant ENTER key with the FINISH arch on it. Ends the course. */
   finish(): this {
     const size = 7;
@@ -261,7 +321,7 @@ export class CourseBuilder {
     if (!this.obstacles.some((o) => o.type === "finish")) throw new Error(`${meta.id}: a course must end with finish()`);
     return {
       ...meta,
-      stageType: "standard",
+      stageType: this.obstacles.some((o) => o.type === "boss") ? "maze-boss" : "standard",
       spawn: this.spawn,
       killPlaneY: this.lowest - 12,
       obstacles: this.obstacles,
@@ -272,6 +332,21 @@ export class CourseBuilder {
     if (!this.last) throw new Error(`${what}() must follow a platform()`);
     return this.last;
   }
+}
+
+/** Throws unless the maze is square-edged, has one way in and out, and the boss can reach you. */
+function checkMaze(m: MazeDef): void {
+  const cols = m.grid[0].length;
+  if (m.grid.some((row) => row.length !== cols)) throw new Error(`${m.id}: every maze row must be the same length`);
+  const entry = openingsInRow(m, 0);
+  const exit = openingsInRow(m, m.grid.length - 1);
+  if (entry.length !== 1 || exit.length !== 1) throw new Error(`${m.id}: needs exactly one entry (first row) and one exit (last row)`);
+  // The entry must meet a normal-width platform on the course's centre line.
+  if (Math.abs((cols - 1) / 2 - entry[0][1]) * m.cellSize > DEFAULT_WIDTH / 2) throw new Error(`${m.id}: the entry must be near the middle`);
+  const home = findCell(m, "B");
+  if (!home) throw new Error(`${m.id}: mark the boss's home with B`);
+  if (!shortestPath(m, entry[0], exit[0])) throw new Error(`${m.id}: the exit can't be reached`);
+  if (!shortestPath(m, home, entry[0])) throw new Error(`${m.id}: the boss can't reach the entry`);
 }
 
 export const course = () => new CourseBuilder();

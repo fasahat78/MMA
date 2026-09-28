@@ -8,6 +8,8 @@ export const KEY_NAMES = [
   "Z", "X", "C", "V", "B", "N", "M",
   "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
   "SHIFT", "SPACE", "ENTER", "ESC", "TAB", "↑", "↓", "←", "→", "?", "!",
+  // Added 2026-09-28 with the Stage 15 maze.
+  "CAPS LOCK", "BACKSPACE", "DELETE", "CTRL", "ALT", "HOME", "END", "BOSS",
 ] as const;
 
 export const KEYBOARD_MESSAGES = [
@@ -21,6 +23,22 @@ export const KEYBOARD_MESSAGES = [
   "ESCAPE",
   "???",
   "404",
+  // Draft set from Zoya's V0 play-test (2026-09-28), waiting for her OK:
+  // falling keys, "why so few keys?", sprinting, and the Stage 15 boss.
+  "JUMP!",
+  "HOLD SHIFT",
+  "ALMOST THERE",
+  "TOO SLOW?",
+  "OOPS",
+  "NOT AGAIN",
+  "TRY ME",
+  "PRESS ANY KEY",
+  "LOADING...",
+  "CTRL+Z",
+  "SO MANY KEYS",
+  "BOSS KEY",
+  "SNEAKY",
+  "THIS WAY?",
 ] as const;
 
 export type KeyName = (typeof KEY_NAMES)[number];

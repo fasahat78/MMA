@@ -24,6 +24,8 @@ interface Animated {
 export class StageView {
   readonly group = new THREE.Group();
   private readonly animated: Animated[] = [];
+  /** One side and one top material per wall label, shared by every wall key. */
+  private readonly wallMaterials = new Map<string, { side: THREE.Material; top: THREE.Material }>();
   /** Live: toggling the OS setting mid-run applies without a restart. */
   reducedMotion: boolean;
 
@@ -58,6 +60,8 @@ export class StageView {
         return this.addCheckpoint(part);
       case "finish":
         return this.addFinish(part);
+      case "maze":
+        return this.addMazeWall(part);
     }
   }
 
@@ -123,6 +127,21 @@ export class StageView {
     }
     const materials = [sideMat, sideMat, mat(cap, { map: top }), sideMat, sideMat, sideMat];
     this.boxMesh(part, materials);
+  }
+
+  /** A tall wall key, labelled on top and on every side so it reads from inside the maze. */
+  private addMazeWall(part: Part): void {
+    const label = part.label ?? "?";
+    let m = this.wallMaterials.get(label);
+    if (!m) {
+      const side = keyLabelTexture(label, palette.mazeWallSide);
+      const top = keyLabelTexture(label, palette.mazeWallCap);
+      top.center.set(0.5, 0.5);
+      top.rotation = Math.PI;
+      m = { side: mat("#ffffff", { map: side }), top: mat("#ffffff", { map: top }) };
+      this.wallMaterials.set(label, m);
+    }
+    this.boxMesh(part, [m.side, m.side, m.top, m.side, m.side, m.side]);
   }
 
   private addBridge(part: Part): void {

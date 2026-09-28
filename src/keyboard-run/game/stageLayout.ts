@@ -1,5 +1,6 @@
 import type { KeyLabel } from "../data/keyboardMessages";
 import type { ObstacleDef, ObstacleType, StageDefinition, Vec3 } from "../types/stage";
+import { cellCenter } from "./mazeGrid.ts";
 
 // Expands obstacle definitions into primitive parts. Physics and rendering
 // both consume this one list, so what you see is exactly what you collide with.
@@ -98,7 +99,37 @@ function expand(def: ObstacleDef, checkpointIndex: number): Part[] {
       return expandKeyboardRun(def);
     case "falling-keys":
       return expandFallingKeys(def);
+    case "maze":
+      return expandMaze(def);
+    case "boss":
+      // Not a solid part: the simulation moves it (game/sim/boss.ts).
+      return [];
   }
+}
+
+/** A thin seam between wall keys so they read as separate keycaps. */
+const MAZE_KEY_SEAM = 0.08;
+
+function expandMaze(def: Extract<ObstacleDef, { type: "maze" }>): Part[] {
+  const floorY = def.origin[1];
+  const size = def.cellSize - MAZE_KEY_SEAM;
+  const parts: Part[] = [];
+  let n = 0;
+  def.grid.forEach((row, r) => {
+    [...row].forEach((ch, c) => {
+      if (ch !== "#") return;
+      const [x, z] = cellCenter(def, [r, c]);
+      parts.push({
+        id: `${def.id}-${r}-${c}`,
+        kind: "static",
+        obstacleType: def.type,
+        center: [x, floorY + def.wallHeight / 2, z],
+        size: [size, def.wallHeight, size],
+        label: def.labels[n++ % def.labels.length],
+      });
+    });
+  });
+  return parts;
 }
 
 function expandKeyboardRun(def: Extract<ObstacleDef, { type: "keyboard-run" }>): Part[] {

@@ -1,13 +1,19 @@
 import { economy } from "../data/economy.ts";
+import { DEFAULT_RUNNER_ID, getRunner, runners, type Runner } from "../data/runners.ts";
 import type { StageDefinition } from "../types/stage";
 
 // Block Dash progress rules — pure functions, no storage, so they're tested
 // in Node. `progressStore.ts` wraps them with saving on this device.
 
-export const PROGRESS_VERSION = 1;
+// v2 (2026-09-28): runners. `wins` stays the total ever earned; what's left
+// to spend is derived from the runners owned, so saves from two tabs merge
+// without losing Wins or runners (see progressStore.ts). Two purchases in two
+// tabs at the same instant can at worst leave the wallet at 0 (clamped).
+export const PROGRESS_VERSION = 2;
 
 export interface BlockDashProgress {
   version: number;
+  /** Every Win ever earned. Spend with `walletWins`, never by lowering this. */
   wins: number;
   /** Highest stage number (1-based) that is open to play. */
   unlockedStage: number;
@@ -15,6 +21,9 @@ export interface BlockDashProgress {
   completedStageIds: string[];
   /** Fastest finish per stage id, in ms. */
   bestTimes: Record<string, number>;
+  /** Runners bought (free ones are always owned, so they aren't listed). */
+  ownedRunnerIds: string[];
+  selectedRunnerId: string;
 }
 
 export const defaultProgress: BlockDashProgress = {
@@ -23,6 +32,8 @@ export const defaultProgress: BlockDashProgress = {
   unlockedStage: 1,
   completedStageIds: [],
   bestTimes: {},
+  ownedRunnerIds: [],
+  selectedRunnerId: DEFAULT_RUNNER_ID,
 };
 
 const isCount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
@@ -41,7 +52,16 @@ export function migrateProgress(raw: unknown): BlockDashProgress {
     unlockedStage: isCount(r.unlockedStage) && r.unlockedStage >= 1 ? Math.floor(r.unlockedStage) : 1,
     completedStageIds: Array.isArray(r.completedStageIds) ? r.completedStageIds.filter((id): id is string => typeof id === "string") : [],
     bestTimes,
+    ownedRunnerIds: ownedFrom(r.ownedRunnerIds),
+    selectedRunnerId: typeof r.selectedRunnerId === "string" ? r.selectedRunnerId : DEFAULT_RUNNER_ID,
   };
+}
+
+/** Keeps only real, paid-for runner ids, once each. */
+function ownedFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const paid = new Set(runners.filter((r) => r.cost > 0).map((r) => r.id));
+  return [...new Set(raw.filter((id): id is string => typeof id === "string" && paid.has(id)))];
 }
 
 export function isStageUnlocked(progress: BlockDashProgress, stage: Pick<StageDefinition, "stageNumber">): boolean {
@@ -77,4 +97,39 @@ export function recordFinish(progress: BlockDashProgress, stage: StageDefinition
     firstClear,
     unlockedNext: nextUnlock > progress.unlockedStage,
   };
+}
+
+// --- Runners -------------------------------------------------------------------
+
+export function ownsRunner(progress: BlockDashProgress, runner: Runner): boolean {
+  return runner.cost === 0 || progress.ownedRunnerIds.includes(runner.id);
+}
+
+/** Wins left to spend: everything earned minus what the owned runners cost. */
+export function walletWins(progress: BlockDashProgress): number {
+  const spent = progress.ownedRunnerIds.reduce((sum, id) => sum + getRunner(id).cost, 0);
+  return Math.max(0, progress.wins - spent);
+}
+
+/** The runner to play as; falls back to the default if the choice isn't owned. */
+export function selectedRunner(progress: BlockDashProgress): Runner {
+  const runner = getRunner(progress.selectedRunnerId);
+  return ownsRunner(progress, runner) ? runner : getRunner(DEFAULT_RUNNER_ID);
+}
+
+export type BuyResult = { ok: true; progress: BlockDashProgress } | { ok: false; reason: "owned" | "not-enough-wins" };
+
+/** Buys a runner with Wins and puts it on straight away. */
+export function buyRunner(progress: BlockDashProgress, runner: Runner): BuyResult {
+  if (ownsRunner(progress, runner)) return { ok: false, reason: "owned" };
+  if (walletWins(progress) < runner.cost) return { ok: false, reason: "not-enough-wins" };
+  return {
+    ok: true,
+    progress: { ...progress, ownedRunnerIds: [...progress.ownedRunnerIds, runner.id], selectedRunnerId: runner.id },
+  };
+}
+
+/** Plays as an owned runner; anything else leaves progress unchanged. */
+export function chooseRunner(progress: BlockDashProgress, runner: Runner): BlockDashProgress {
+  return ownsRunner(progress, runner) ? { ...progress, selectedRunnerId: runner.id } : progress;
 }

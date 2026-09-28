@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import { palette } from "./palette";
+import type { HeadBit, RunnerLook } from "../../data/runners";
 
 // Original block-style runner: cube head, box limbs, no studs or claw hands
 // (brief §6 — not a LEGO minifigure). Built as named slots so later
-// accessories can attach to head / back / hands.
+// accessories can attach to head / back / hands. Colours and head bits
+// (ears, snouts, horns…) come from the chosen runner in data/runners.ts.
 // Origin = capsule centre; feet at y = -0.9.
 
 const HIP_Y = -0.25;
@@ -35,6 +36,13 @@ function limb(x: number, pivotY: number, length: number, width: number, color: s
   return pivot;
 }
 
+function headBit(b: HeadBit): THREE.Mesh {
+  const mesh = box(...b.size, b.color);
+  mesh.position.set(...b.pos);
+  if (b.rot) mesh.rotation.set(...b.rot);
+  return mesh;
+}
+
 export class BlockCharacter {
   readonly root = new THREE.Group();
   /** Attachment slots for future cosmetics. */
@@ -49,32 +57,37 @@ export class BlockCharacter {
   private wasGrounded = true;
   private facing = 0;
 
-  constructor() {
-    this.legL = limb(0.17, HIP_Y, 0.65, 0.28, palette.legs, palette.shoes);
-    this.legR = limb(-0.17, HIP_Y, 0.65, 0.28, palette.legs, palette.shoes);
+  constructor(look: RunnerLook) {
+    this.legL = limb(0.17, HIP_Y, 0.65, 0.28, look.legs, look.shoes);
+    this.legR = limb(-0.17, HIP_Y, 0.65, 0.28, look.legs, look.shoes);
 
-    const torso = box(0.72, 0.6, 0.42, palette.body);
+    const torso = box(0.72, 0.6, 0.42, look.body);
     torso.position.y = HIP_Y + 0.3;
 
-    this.armL = limb(0.47, SHOULDER_Y, 0.55, 0.2, palette.body);
-    this.armR = limb(-0.47, SHOULDER_Y, 0.55, 0.2, palette.body);
+    this.armL = limb(0.47, SHOULDER_Y, 0.55, 0.2, look.body);
+    this.armR = limb(-0.47, SHOULDER_Y, 0.55, 0.2, look.body);
     for (const arm of [this.armL, this.armR]) {
-      const hand = box(0.22, 0.16, 0.22, palette.head);
+      const hand = box(0.22, 0.16, 0.22, look.hands);
       hand.position.y = -0.6;
       arm.add(hand);
     }
 
     const head = new THREE.Group();
     head.position.y = 0.65;
-    head.add(box(0.56, 0.56, 0.56, palette.head));
+    head.add(box(0.56, 0.56, 0.56, look.head));
+    // Bits go on first so the eyes sit in front of any face patch.
+    for (const b of look.bits) head.add(headBit(b));
     for (const sx of [-1, 1]) {
-      const eye = box(0.08, 0.13, 0.02, palette.eyes);
-      eye.position.set(sx * 0.12, 0.04, 0.285);
+      const eye = box(0.08, 0.13, 0.02, look.eyes);
+      eye.position.set(sx * 0.12, 0.04, 0.295);
       eye.castShadow = false;
-      const cheek = box(0.1, 0.05, 0.02, palette.cheeks);
-      cheek.position.set(sx * 0.19, -0.08, 0.285);
-      cheek.castShadow = false;
-      head.add(eye, cheek);
+      head.add(eye);
+      if (look.cheeks) {
+        const cheek = box(0.1, 0.05, 0.02, look.cheeks);
+        cheek.position.set(sx * 0.19, -0.08, 0.295);
+        cheek.castShadow = false;
+        head.add(cheek);
+      }
     }
 
     const back = new THREE.Group();

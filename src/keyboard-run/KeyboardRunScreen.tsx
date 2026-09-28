@@ -5,7 +5,8 @@ import { FinishPanel, FullScreenMessage, PausePanel, type FinishSummary } from "
 import { RunHud } from "./components/RunHud";
 import { TouchControls } from "./components/TouchControls";
 import type { EngineHandle, RunBridge } from "./game/bridge";
-import { finishStage } from "./state/progressStore";
+import { selectedRunner, walletWins } from "./state/progress";
+import { finishStage, getBlockDashProgress } from "./state/progressStore";
 import type { StageDefinition } from "./types/stage";
 
 interface Props {
@@ -20,7 +21,9 @@ interface Props {
 type Status = "loading" | "ready" | "error";
 
 const FELL_FLASH_MS = 700;
+const CAUGHT_FLASH_MS = 900;
 const CHECKPOINT_TOAST_MS = 1600;
+const BOSS_TOAST_MS = 2600;
 
 /** Phones and tablets (a finger is the main pointer) start with touch controls. */
 function prefersTouch(): boolean {
@@ -54,7 +57,8 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
   const [sprintUsed, setSprintUsed] = useState(false);
   const [checkpoint, setCheckpoint] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [fell, setFell] = useState(false);
+  /** Big centre message after a fall or a catch ("Whoops!"). */
+  const [flash, setFlash] = useState<string | null>(null);
   const [finish, setFinish] = useState<FinishSummary | null>(null);
   const finishMs = finish?.timeMs ?? null;
   // The engine starts once per mount (App keys this screen by stage id).
@@ -75,6 +79,15 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
         fn();
       }, ms);
       timers.add(id);
+      return id;
+    };
+    // One centre message at a time: a new one restarts the clear-out timer.
+    let flashTimer = 0;
+    const showFlash = (text: string, ms: number) => {
+      clearTimeout(flashTimer);
+      timers.delete(flashTimer);
+      setFlash(text);
+      flashTimer = later(() => setFlash(null), ms);
     };
 
     const bridge: RunBridge = {
@@ -98,15 +111,17 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
           bestMs: result.progress.bestTimes[current.id] ?? ms,
           isNewBest: result.isNewBest,
           winsEarned: result.winsEarned,
-          totalWins: result.progress.wins,
+          totalWins: walletWins(result.progress),
           unlockedStageNumber: result.unlockedNext ? current.stageNumber + 1 : null,
         });
         track("block_dash_finish", { stage: current.id, seconds: Math.round(ms / 100) / 10 });
       },
-      onFell: () => {
-        setFell(true);
-        later(() => setFell(false), FELL_FLASH_MS);
+      onFell: () => showFlash("Whoops!", FELL_FLASH_MS),
+      onBossAwake: () => {
+        setToast("😜 The BOSS key woke up — find the exit!");
+        later(() => setToast(null), BOSS_TOAST_MS);
       },
+      onCaught: () => showFlash("Caught by the BOSS key!", CAUGHT_FLASH_MS),
       onRespawn: () => undefined,
       onRunReset: () => {
         setTimeMs(0);
@@ -131,6 +146,7 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
           stage: stageRef.current,
           reducedMotion: reducedMotionRef.current,
           lowPower: lowPowerRef.current,
+          runner: selectedRunner(getBlockDashProgress()).look,
         });
         if (cancelled) {
           engine.dispose();
@@ -222,9 +238,9 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
         </div>
       )}
 
-      {fell && (
+      {flash && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center" role="status">
-          <p className="rounded-3xl bg-white/90 px-6 py-3 text-3xl font-extrabold text-fuchsia-600 shadow-xl">Whoops!</p>
+          <p className="rounded-3xl bg-white/90 px-6 py-3 text-3xl font-extrabold text-fuchsia-600 shadow-xl">{flash}</p>
         </div>
       )}
 

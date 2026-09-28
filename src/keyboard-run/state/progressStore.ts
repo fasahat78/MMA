@@ -1,6 +1,16 @@
 import { useSyncExternalStore } from "react";
 import type { StageDefinition } from "../types/stage";
-import { defaultProgress, migrateProgress, recordFinish, type BlockDashProgress, type FinishResult } from "./progress";
+import type { Runner } from "../data/runners";
+import {
+  buyRunner,
+  chooseRunner,
+  defaultProgress,
+  migrateProgress,
+  recordFinish,
+  type BlockDashProgress,
+  type BuyResult,
+  type FinishResult,
+} from "./progress";
 
 // Saves Block Dash progress on this device (same approach as Maze Mates'
 // progressStore: localStorage, versioned, immutable updates). No accounts,
@@ -52,8 +62,10 @@ function persist(): void {
 }
 
 /**
- * Combines this tab's progress with the saved copy, keeping the best of both
- * (Wins can only grow until there is something to spend them on).
+ * Combines this tab's progress with the saved copy, keeping the best of both.
+ * `wins` is the total ever earned and only grows; spending comes from the
+ * owned runners, so the union of both copies is always right. The runner
+ * choice follows this tab.
  */
 function merge(a: BlockDashProgress, b: BlockDashProgress): BlockDashProgress {
   const bestTimes = { ...a.bestTimes };
@@ -64,6 +76,8 @@ function merge(a: BlockDashProgress, b: BlockDashProgress): BlockDashProgress {
     unlockedStage: Math.max(a.unlockedStage, b.unlockedStage),
     completedStageIds: [...new Set([...a.completedStageIds, ...b.completedStageIds])],
     bestTimes,
+    ownedRunnerIds: [...new Set([...a.ownedRunnerIds, ...b.ownedRunnerIds])],
+    selectedRunnerId: a.selectedRunnerId,
   };
 }
 
@@ -113,4 +127,23 @@ export function finishStage(stage: StageDefinition, timeMs: number): FinishResul
   persist();
   emit();
   return result;
+}
+
+function commit(next: BlockDashProgress): void {
+  state = next;
+  persist();
+  emit();
+}
+
+export function buyRunnerAndSave(runner: Runner): BuyResult {
+  refreshFromStorage();
+  const result = buyRunner(state, runner);
+  if (result.ok) commit(result.progress);
+  return result;
+}
+
+export function chooseRunnerAndSave(runner: Runner): void {
+  refreshFromStorage();
+  const next = chooseRunner(state, runner);
+  if (next !== state) commit(next);
 }

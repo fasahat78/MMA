@@ -98,6 +98,43 @@ check("A map open in another tab unlocks Stage 3 without reloading", lockedBefor
 check("Stepping onto the ENTER key finishes (whole key is the finish line)", await shows(page.getByRole("dialog", { name: "Finished" })));
 await otherTab.close();
 
+// Runners: a save with 10 Wins to spend and every stage open.
+const SHOTS = process.env.SHOT_DIR;
+await page.evaluate(() => {
+  localStorage.setItem("block-dash-progress", JSON.stringify({ version: 1, wins: 10, unlockedStage: 15, completedStageIds: [], bestTimes: {} }));
+});
+await page.goto(BASE + "#/play/block-dash");
+await page.reload();
+await page.getByRole("button", { name: /^Runners/ }).click();
+const shop = page.getByRole("dialog", { name: "Runners" });
+check("Runners panel opens from the map", await shows(shop));
+check("Every Maze Mates animal is in the Runners panel", (await shop.getByRole("button").filter({ hasText: /Penguin|Bird|Bunny|Cat|Dog|Monkey|Panda|Fox|Bear|Unicorn|Robot|Explorer/ }).count()) === 12);
+await shop.getByRole("button", { name: "Buy Cat for 12 Wins" }).click();
+check("Can't buy a runner you can't afford", await shows(shop.getByText("You need 2 more Wins for Cat")));
+await shop.getByRole("button", { name: "Buy Bird for 3 Wins" }).click();
+check("Buying Bird spends 3 Wins and puts it on", (await shows(shop.getByText("Bird is yours!"))) && (await shows(shop.getByRole("button", { name: "Bird, chosen" }))) && (await shows(winsBadge(7))));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/runners.png` });
+await page.keyboard.press("Escape");
+check("Esc closes the Runners panel; the map shows who you run as", (await shop.count()) === 0 && (await shows(page.getByRole("button", { name: "Runners: you're running as Bird" }))));
+await page.reload();
+check("The bought runner is still yours after reloading", await shows(page.getByRole("button", { name: "Runners: you're running as Bird" })));
+
+// Stage 15: the maze and the BOSS key, in the real renderer.
+check("Stage 15 is marked as the BOSS stage", await shows(page.getByRole("button", { name: "Play stage 15" }).getByText("BOSS")));
+await page.getByRole("button", { name: "Play stage 15" }).click();
+await page.waitForFunction(() => !!window.__KR__, null, { timeout: 30000 });
+check("Stage 15 loads with a sleeping boss", (await page.evaluate(() => window.__KR__.state().boss?.phase)) === "asleep");
+const s15 = world1.stages[14];
+const maze = s15.obstacles.find((o) => o.type === "maze");
+await page.waitForTimeout(500);
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage15-start.png` });
+// Step just inside the maze entrance.
+await page.evaluate((f) => window.__KR__.teleport(f), [0, maze.origin[1], maze.origin[2] + maze.cellSize * 1.5]);
+check("Stepping into the maze wakes the boss", await shows(page.getByText("The BOSS key woke up")));
+await page.waitForTimeout(3500);
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage15-chase.png` });
+check("The boss is chasing after its head start", (await page.evaluate(() => window.__KR__.state().boss?.phase)) === "chasing");
+
 check("No console errors", errors.length === 0, errors.join(" | "));
 await browser.close();
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll Block Dash World 1 checks passed");

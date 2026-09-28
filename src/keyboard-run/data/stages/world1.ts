@@ -2,12 +2,13 @@ import { winsForStage } from "../economy.ts";
 import type { StageDefinition } from "../../types/stage";
 import { course } from "./courseBuilder.ts";
 import { sandboxStage } from "./sandbox.ts";
+import { buildStage15 } from "./stage15.ts";
 
-// World 1: fourteen stages, each harder than the last (brief §10–11). Stage 3
+// World 1: fifteen stages, each harder than the last (brief §10–11). Stage 3
 // is the V0.1 course Zoya already knows. Recommended levels are placeholders
 // until player levels exist; the direction (1, then 8, then higher) is hers.
-// Stages 6–14 reuse the same parts, only faster, narrower and longer; new
-// mechanics (and the Stage 15 maze + boss) wait for Zoya's direction.
+// Stages 6–14 reuse the same parts, only faster, narrower and longer.
+// Stage 15 (stage15.ts) is the maze with the chasing BOSS key.
 //
 // Jump reference: ~1.8 m high, ~5 m across walking, ~8 m sprinting.
 // Stages 1–2 are beginner stages: stepping stones sit about one jump apart,
@@ -529,10 +530,13 @@ const stage14 = course()
   .finish()
   .build(meta(14, 112));
 
+// Stage 15 — the maze and the BOSS key.
+const stage15 = buildStage15(meta(15, 120));
+
 export const world1 = {
   id: "world-1",
   name: "World 1",
-  stages: [stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8, stage9, stage10, stage11, stage12, stage13, stage14],
+  stages: [stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8, stage9, stage10, stage11, stage12, stage13, stage14, stage15],
 } as const;
 
 export function findStage(id: string): StageDefinition | undefined {

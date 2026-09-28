@@ -30,11 +30,20 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
   - Stage 3 is the V0.1 course.
   - Stages 4–5 expect some control in mid-air.
   - Stages 6–14 reuse the same parts, faster, narrower and longer, ending with the Stage 14 gauntlet.
-- **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4 … 8,192 for Stage 14. They're paid on every finish, Roblox-style.
+  - Stage 15 (`data/stages/stage15.ts`) is the finale: a maze of tall wall keys with the **BOSS key**.
+    - It sleeps in the maze's front-left corner until you step in, gives you a 3 s head start, then follows the shortest path to you (`game/sim/boss.ts`).
+    - It's slower than walking (4.5 vs 8 m/s). On the best route it's still ~13 m behind at the exit, so the danger is dead ends.
+    - Being caught sends you back to the maze checkpoint and the boss goes home to sleep.
+    - The maze is plain text in `stage15.ts` (`#` wall, `.` floor, `B` boss home), so it can be edited by hand. `courseBuilder.maze()` refuses mazes that can't be solved.
+- **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4 … 16,384 for Stage 15. They're paid on every finish, Roblox-style.
+- **Runners** (`data/runners.ts`): block-style versions of the 12 Maze Mates animals, plus the original runner (Blocky).
+  - Blocky and Penguin are free; the rest cost Wins (`runnerPrices` in `data/economy.ts`). Buy and choose them from **Runners** on the map.
+  - A look is colours plus a few boxes on the head (ears, snout, horn…), so a new animal is data only.
+  - `wins` in the save is every Win ever earned; what's left to spend is worked out from the runners owned. So merging two open tabs never loses Wins or runners. Buying in both tabs at the same instant could, at worst, leave the wallet at 0.
 - **Progress** (`state/`): Wins, the unlocked stage and best times are saved on the device in `localStorage` (`block-dash-progress`, versioned).
   - Finishing a stage opens the next one.
   - A locked stage's link falls back to the map.
-- **Tests:** `npm run test:block-dash-stages` checks every stage can be cleared. It checks gaps and step heights, jumps every stone and climb with a beginner and a skilled test player, and respawns on every checkpoint. `npm run test:block-dash-world` runs the map, unlock and Wins flow in a browser.
+- **Tests:** `npm run test:block-dash-maze` checks Stage 15 (solvable, boss wakes, the best route escapes, standing still gets caught). `npm run test:block-dash-runners` checks buying, choosing and old saves. `npm run test:block-dash-stages` checks every stage can be cleared. It checks gaps and step heights, jumps every stone and climb with a beginner and a skilled test player, and respawns on every checkpoint. `npm run test:block-dash-world` runs the map, unlock and Wins flow in a browser.
 
 ## Phones and tablets
 
@@ -56,7 +65,9 @@ Almost every number that affects game feel lives in data, not in code:
 | Speed, sprint, jump, gravity, air control, respawn delay, coyote time | `data/movement.ts` → `playerMovement` |
 | Camera distance, angle, mouse sensitivity | `data/movement.ts` → `cameraConfig` |
 | The course: every obstacle, size, speed, gap | `data/stages/sandbox.ts` |
-| Text allowed on keys | `data/keyboardMessages.ts` |
+| Text allowed on keys (new words from 2026-09-28 await Zoya's OK) | `data/keyboardMessages.ts` |
+| Stage 15 maze, boss speed and head start | `data/stages/stage15.ts` |
+| Runner looks and prices | `data/runners.ts`, `data/economy.ts` |
 | Colours | `game/render/palette.ts` |
 
 Change a value, run `npm run dev`, and play.
