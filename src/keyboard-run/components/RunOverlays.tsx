@@ -51,6 +51,8 @@ export interface FinishSummary {
   totalWins: number;
   /** The stage just opened for the first time, if any. */
   unlockedStageNumber: number | null;
+  /** A teleport was used, so no best time was saved. */
+  teleported: boolean;
 }
 
 export function FinishPanel({
@@ -68,7 +70,7 @@ export function FinishPanel({
   onAgain: () => void;
   onMap: () => void;
 }) {
-  const { timeMs, bestMs, isNewBest, winsEarned, totalWins, unlockedStageNumber } = summary;
+  const { timeMs, bestMs, isNewBest, winsEarned, totalWins, unlockedStageNumber, teleported } = summary;
   return (
     <Panel label="Finished">
       <p className="text-5xl" aria-hidden>
@@ -76,7 +78,9 @@ export function FinishPanel({
       </p>
       <h2 className="text-3xl font-extrabold text-fuchsia-700">Stage {stageNumber} done!</h2>
       <p className="font-mono text-4xl font-bold tabular-nums text-slate-800">{formatRunTime(timeMs)}</p>
-      {isNewBest ? (
+      {teleported ? (
+        <p className="font-bold text-violet-600">⚡ Teleport used — best times only count without one</p>
+      ) : isNewBest ? (
         <p className="font-extrabold text-emerald-600">⭐ New best time!</p>
       ) : (
         <p className="font-bold text-slate-500">Best: {formatRunTime(bestMs)}</p>

@@ -98,26 +98,39 @@ check("A map open in another tab unlocks Stage 3 without reloading", lockedBefor
 check("Stepping onto the ENTER key finishes (whole key is the finish line)", await shows(page.getByRole("dialog", { name: "Finished" })));
 await otherTab.close();
 
-// Runners: a save with 10 Wins to spend and every stage open.
+// Shop: a save with 10 Wins to spend and every stage open.
 const SHOTS = process.env.SHOT_DIR;
 await page.evaluate(() => {
   localStorage.setItem("block-dash-progress", JSON.stringify({ version: 1, wins: 10, unlockedStage: 15, completedStageIds: [], bestTimes: {} }));
 });
 await page.goto(BASE + "#/play/block-dash");
 await page.reload();
-await page.getByRole("button", { name: /^Runners/ }).click();
-const shop = page.getByRole("dialog", { name: "Runners" });
-check("Runners panel opens from the map", await shows(shop));
-check("Every Maze Mates animal is in the Runners panel", (await shop.getByRole("button").filter({ hasText: /Penguin|Bird|Bunny|Cat|Dog|Monkey|Panda|Fox|Bear|Unicorn|Robot|Explorer/ }).count()) === 12);
+await page.getByRole("button", { name: /^Shop/ }).click();
+const shop = page.getByRole("dialog", { name: "Shop" });
+check("Shop opens from the map", await shows(shop));
+check("Every Maze Mates animal is in the Shop", (await shop.getByRole("button").filter({ hasText: /Penguin|Bird|Bunny|Cat|Dog|Monkey|Panda|Fox|Bear|Unicorn|Robot|Explorer/ }).count()) === 12);
 await shop.getByRole("button", { name: "Buy Cat for 12 Wins" }).click();
 check("Can't buy a runner you can't afford", await shows(shop.getByText("You need 2 more Wins for Cat")));
 await shop.getByRole("button", { name: "Buy Bird for 3 Wins" }).click();
 check("Buying Bird spends 3 Wins and puts it on", (await shows(shop.getByText("Bird is yours!"))) && (await shows(shop.getByRole("button", { name: "Bird, chosen" }))) && (await shows(winsBadge(7))));
-if (SHOTS) await page.screenshot({ path: `${SHOTS}/runners.png` });
+await shop.getByRole("button", { name: "Buy a teleport for 5 Wins" }).click();
+check("Buying a teleport spends 5 Wins; the next costs 15", (await shows(shop.getByText("Teleport bought!"))) && (await shows(winsBadge(2))) && (await shows(shop.getByRole("button", { name: "Buy a teleport for 15 Wins" }))));
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/shop.png` });
 await page.keyboard.press("Escape");
-check("Esc closes the Runners panel; the map shows who you run as", (await shop.count()) === 0 && (await shows(page.getByRole("button", { name: "Runners: you're running as Bird" }))));
+check("Esc closes the Shop; the map shows who you run as", (await shop.count()) === 0 && (await shows(page.getByRole("button", { name: "Shop: you're running as Bird" }))));
 await page.reload();
-check("The bought runner is still yours after reloading", await shows(page.getByRole("button", { name: "Runners: you're running as Bird" })));
+check("The bought runner is still yours after reloading", await shows(page.getByRole("button", { name: "Shop: you're running as Bird" })));
+
+// Use the teleport: T in Stage 2 jumps to checkpoint 1 and uses the charge up.
+await page.getByRole("button", { name: "Play stage 2" }).click();
+await page.waitForFunction(() => !!window.__KR__, null, { timeout: 30000 });
+check("The ⚡ button shows the teleport you own", await shows(page.getByRole("button", { name: "Teleport to the next checkpoint (1 left)" })));
+await page.locator("canvas").focus().catch(() => {});
+await page.keyboard.press("t");
+check("T teleports to checkpoint 1", (await shows(page.getByText("Teleported to checkpoint 1"))) && (await page.evaluate(() => window.__KR__.state().checkpoint)) === 1);
+check("Using it spends the teleport (button gone)", (await page.getByRole("button", { name: /Teleport to the next checkpoint/ }).count()) === 0);
+await page.getByRole("button", { name: "Back to the World 1 map" }).click();
+await heading().waitFor();
 
 // Stage 15: the maze and the BOSS key, in the real renderer.
 check("Stage 15 is marked as the BOSS stage", await shows(page.getByRole("button", { name: "Play stage 15" }).getByText("BOSS")));

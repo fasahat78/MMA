@@ -3,7 +3,7 @@ import { world1 } from "../data/stages/world1";
 import { isStageUnlocked, selectedRunner, walletWins } from "../state/progress";
 import { canSaveProgress, useBlockDashProgress } from "../state/progressStore";
 import { formatRunTime } from "../utils/formatTime";
-import { RunnerShop } from "./RunnerShop";
+import { Shop } from "./Shop";
 
 interface Props {
   onPlay: (stageId: string) => void;
@@ -34,9 +34,9 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
             <button
               onClick={() => setShopOpen(true)}
               className="btn-pop min-h-[44px] rounded-full bg-white/85 px-4 py-2 font-extrabold text-indigo-700 shadow-md"
-              aria-label={`Runners: you're running as ${runner.name}`}
+              aria-label={`Shop: you're running as ${runner.name}`}
             >
-              <span aria-hidden>{runner.emoji}</span> Runners
+              <span aria-hidden>{runner.emoji}</span> Shop
             </button>
             <div
               className="rounded-full bg-amber-300 px-4 py-2 text-lg font-black text-amber-950 shadow-md tabular-nums"
@@ -99,7 +99,7 @@ export function StageMapScreen({ onPlay, onExit }: Props) {
           })}
         </ol>
       </div>
-      {shopOpen && <RunnerShop onClose={closeShop} />}
+      {shopOpen && <Shop onClose={closeShop} />}
     </div>
   );
 }

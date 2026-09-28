@@ -23,6 +23,7 @@ export type SimEvent =
   | { type: "boss-awake" }
   | { type: "caught" }
   | { type: "respawn"; reason: RespawnReason }
+  | { type: "teleport"; index: number; total: number }
   | { type: "run-reset" };
 
 // Offsets from the capsule centre.
@@ -53,6 +54,8 @@ export class Simulation {
   runStarted = false;
   finished = false;
   activeCheckpoint = 0;
+  /** This run used a teleport (it can't set a best time). */
+  teleported = false;
   respawnTimerSec = 0;
   private respawnReason: RespawnReason = "fell";
   speedBoostSec = 0;
@@ -287,12 +290,38 @@ export class Simulation {
     this.events.push({ type: "respawn", reason });
   }
 
+  /** Is there a checkpoint ahead to teleport to right now? */
+  get canTeleport(): boolean {
+    return !this.finished && this.respawnTimerSec <= 0 && this.activeCheckpoint < this.checkpointCount;
+  }
+
+  /**
+   * A bought teleport: straight to the next checkpoint, which becomes the
+   * active one. Starts the clock if it hadn't started. False when there's
+   * no checkpoint ahead (the last stretch is always run for real).
+   */
+  teleportToNextCheckpoint(): boolean {
+    if (!this.canTeleport) return false;
+    if (!this.runStarted) {
+      this.runStarted = true;
+      this.events.push({ type: "run-start" });
+    }
+    this.activeCheckpoint += 1;
+    this.teleported = true;
+    this.speedBoostSec = 0;
+    this.boss?.reset();
+    this.placeAt(this.checkpointSpawns[this.activeCheckpoint]);
+    this.events.push({ type: "teleport", index: this.activeCheckpoint, total: this.checkpointCount });
+    return true;
+  }
+
   /** Back to the start with the clock at zero. */
   restartRun(): void {
     this.runTimeMs = 0;
     this.runStarted = false;
     this.finished = false;
     this.activeCheckpoint = 0;
+    this.teleported = false;
     this.respawnTimerSec = 0;
     this.speedBoostSec = 0;
     this.boss?.reset();

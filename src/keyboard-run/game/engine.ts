@@ -101,6 +101,9 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
 
   const input = new InputController(world.renderer.domElement, {
     onRespawn: respawn,
+    onTeleport: () => {
+      if (!paused && !sim.finished) bridge.onTeleportKey();
+    },
     onEscape: () => {
       // While the mouse is captured, the browser uses Esc to release it and
       // `onPointerLockChange` pauses. Some browsers also deliver the keydown;
@@ -149,7 +152,11 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
           break;
         case "finish":
           input.releaseLock();
-          bridge.onFinish(event.timeMs);
+          bridge.onFinish(event.timeMs, sim.teleported);
+          break;
+        case "teleport":
+          rig.snap();
+          bridge.onTeleport(event.index, event.total);
           break;
         case "fell":
           bridge.onFell();
@@ -262,6 +269,8 @@ export async function startEngine(container: HTMLElement, bridge: RunBridge, opt
       if (!paused || !down) input.setTouchJump(down);
     },
     respawn,
+    teleport: () => !paused && sim.teleportToNextCheckpoint(),
+    canTeleport: () => !paused && sim.canTeleport,
     dispose: () => {
       cancelAnimationFrame(rafId);
       observer.disconnect();

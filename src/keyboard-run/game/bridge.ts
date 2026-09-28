@@ -8,7 +8,12 @@ export interface RunBridge {
   /** First time the player sprints (hides the "hold Shift" hint). */
   onSprintUsed: () => void;
   onCheckpoint: (index: number, total: number) => void;
-  onFinish: (timeMs: number) => void;
+  /** `teleported`: this run used a teleport, so it can't set a best time. */
+  onFinish: (timeMs: number, teleported: boolean) => void;
+  /** Landed on checkpoint `index` by teleport. */
+  onTeleport: (index: number, total: number) => void;
+  /** T key: the player asked to teleport (React checks and spends a charge). */
+  onTeleportKey: () => void;
   onFell: () => void;
   /** Stage 15: the BOSS key woke up because you stepped into its maze. */
   onBossAwake: () => void;
@@ -34,5 +39,8 @@ export interface EngineHandle {
   setTouchJump: (down: boolean) => void;
   /** Same as the R key: back to the last checkpoint (or restart after finishing). */
   respawn: () => void;
+  /** Jumps to the next checkpoint. False when there's none ahead (or paused). */
+  teleport: () => boolean;
+  canTeleport: () => boolean;
   dispose: () => void;
 }

@@ -5,8 +5,8 @@ import { FinishPanel, FullScreenMessage, PausePanel, type FinishSummary } from "
 import { RunHud } from "./components/RunHud";
 import { TouchControls } from "./components/TouchControls";
 import type { EngineHandle, RunBridge } from "./game/bridge";
-import { selectedRunner, walletWins } from "./state/progress";
-import { finishStage, getBlockDashProgress } from "./state/progressStore";
+import { selectedRunner, teleportCharges, walletWins } from "./state/progress";
+import { finishStage, getBlockDashProgress, spendTeleportAndSave, useBlockDashProgress } from "./state/progressStore";
 import type { StageDefinition } from "./types/stage";
 
 interface Props {
@@ -24,6 +24,7 @@ const FELL_FLASH_MS = 700;
 const CAUGHT_FLASH_MS = 900;
 const CHECKPOINT_TOAST_MS = 1600;
 const BOSS_TOAST_MS = 2600;
+const TELEPORT_TOAST_MS = 2200;
 
 /** Phones and tablets (a finger is the main pointer) start with touch controls. */
 function prefersTouch(): boolean {
@@ -57,6 +58,30 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
   const [sprintUsed, setSprintUsed] = useState(false);
   const [checkpoint, setCheckpoint] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  // One toast at a time: a new one restarts the clear-out timer.
+  const toastTimer = useRef(0);
+  const showToast = useCallback((text: string | null, ms = CHECKPOINT_TOAST_MS) => {
+    clearTimeout(toastTimer.current);
+    setToast(text);
+    if (text) toastTimer.current = window.setTimeout(() => setToast(null), ms);
+  }, []);
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+  const teleportsLeft = teleportCharges(useBlockDashProgress());
+
+  /** Button or T key: jump to the next checkpoint, then use up a teleport. */
+  const tryTeleport = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (teleportCharges(getBlockDashProgress()) <= 0) {
+      showToast("No teleports left — buy more in the Shop on the map", TELEPORT_TOAST_MS);
+    } else if (!engine.canTeleport()) {
+      showToast("No checkpoint ahead — run this last bit!", TELEPORT_TOAST_MS);
+    } else if (engine.teleport()) {
+      spendTeleportAndSave();
+    }
+  }, [showToast]);
+  const tryTeleportRef = useRef(tryTeleport);
+  tryTeleportRef.current = tryTeleport;
   /** Big centre message after a fall or a catch ("Whoops!"). */
   const [flash, setFlash] = useState<string | null>(null);
   const [finish, setFinish] = useState<FinishSummary | null>(null);
@@ -99,13 +124,17 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
       onSprintUsed: () => setSprintUsed(true),
       onCheckpoint: (index, total) => {
         setCheckpoint(index);
-        setToast(`🚩 Checkpoint ${index} of ${total}!`);
-        later(() => setToast(null), CHECKPOINT_TOAST_MS);
+        showToast(`🚩 Checkpoint ${index} of ${total}!`);
       },
-      onFinish: (ms) => {
+      onTeleport: (index, total) => {
+        setCheckpoint(index);
+        showToast(`⚡ Teleported to checkpoint ${index} of ${total}!`, TELEPORT_TOAST_MS);
+      },
+      onTeleportKey: () => tryTeleportRef.current(),
+      onFinish: (ms, teleported) => {
         const current = stageRef.current;
         setTimeMs(ms);
-        const result = finishStage(current, ms);
+        const result = finishStage(current, ms, teleported);
         setFinish({
           timeMs: ms,
           bestMs: result.progress.bestTimes[current.id] ?? ms,
@@ -113,13 +142,13 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
           winsEarned: result.winsEarned,
           totalWins: walletWins(result.progress),
           unlockedStageNumber: result.unlockedNext ? current.stageNumber + 1 : null,
+          teleported,
         });
         track("block_dash_finish", { stage: current.id, seconds: Math.round(ms / 100) / 10 });
       },
       onFell: () => showFlash("Whoops!", FELL_FLASH_MS),
       onBossAwake: () => {
-        setToast("😜 The BOSS key woke up — find the exit!");
-        later(() => setToast(null), BOSS_TOAST_MS);
+        showToast("😜 The BOSS key woke up — find the exit!", BOSS_TOAST_MS);
       },
       onCaught: () => showFlash("Caught by the BOSS key!", CAUGHT_FLASH_MS),
       onRespawn: () => undefined,
@@ -128,7 +157,7 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
         setRunStarted(false);
         setCheckpoint(0);
         setFinish(null);
-        setToast(null);
+        showToast(null);
         blurActive();
       },
       onPauseChange: (next) => {
@@ -228,6 +257,8 @@ export function KeyboardRunScreen({ stage, nextStageId, onNextStage, onMap }: Pr
           showSprintHint={!touchMode && runStarted && !sprintUsed && finishMs === null}
           onExit={onMap}
           onRespawn={respawn}
+          teleportsLeft={teleportsLeft}
+          onTeleport={tryTeleport}
           onPause={() => engineRef.current?.pause()}
         />
       )}

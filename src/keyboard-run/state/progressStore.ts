@@ -3,12 +3,15 @@ import type { StageDefinition } from "../types/stage";
 import type { Runner } from "../data/runners";
 import {
   buyRunner,
+  buyTeleport,
+  spendTeleport,
   chooseRunner,
   defaultProgress,
   migrateProgress,
   recordFinish,
   type BlockDashProgress,
   type BuyResult,
+  type TeleportBuyResult,
   type FinishResult,
 } from "./progress";
 
@@ -78,6 +81,8 @@ function merge(a: BlockDashProgress, b: BlockDashProgress): BlockDashProgress {
     bestTimes,
     ownedRunnerIds: [...new Set([...a.ownedRunnerIds, ...b.ownedRunnerIds])],
     selectedRunnerId: a.selectedRunnerId,
+    teleportsBought: Math.max(a.teleportsBought, b.teleportsBought),
+    teleportsUsed: Math.max(a.teleportsUsed, b.teleportsUsed),
   };
 }
 
@@ -120,9 +125,9 @@ export function canSaveProgress(): boolean {
   return savingWorks;
 }
 
-export function finishStage(stage: StageDefinition, timeMs: number): FinishResult {
+export function finishStage(stage: StageDefinition, timeMs: number, teleported = false): FinishResult {
   refreshFromStorage();
-  const result = recordFinish(state, stage, timeMs);
+  const result = recordFinish(state, stage, timeMs, teleported);
   state = result.progress;
   persist();
   emit();
@@ -146,4 +151,19 @@ export function chooseRunnerAndSave(runner: Runner): void {
   refreshFromStorage();
   const next = chooseRunner(state, runner);
   if (next !== state) commit(next);
+}
+
+export function buyTeleportAndSave(): TeleportBuyResult {
+  refreshFromStorage();
+  const result = buyTeleport(state);
+  if (result.ok) commit(result.progress);
+  return result;
+}
+
+/** Uses up one teleport charge. False when there's none left. */
+export function spendTeleportAndSave(): boolean {
+  refreshFromStorage();
+  const next = spendTeleport(state);
+  if (next) commit(next);
+  return next !== null;
 }

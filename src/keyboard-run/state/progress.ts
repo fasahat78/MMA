@@ -1,4 +1,4 @@
-import { economy } from "../data/economy.ts";
+import { economy, teleportPrice, teleportSpend } from "../data/economy.ts";
 import { DEFAULT_RUNNER_ID, getRunner, runners, type Runner } from "../data/runners.ts";
 import type { StageDefinition } from "../types/stage";
 
@@ -9,7 +9,9 @@ import type { StageDefinition } from "../types/stage";
 // to spend is derived from the runners owned, so saves from two tabs merge
 // without losing Wins or runners (see progressStore.ts). Two purchases in two
 // tabs at the same instant can at worst leave the wallet at 0 (clamped).
-export const PROGRESS_VERSION = 2;
+// v3 (2026-09-28): teleports, kept as two counts that only grow (bought,
+// used) so they merge across tabs the same way.
+export const PROGRESS_VERSION = 3;
 
 export interface BlockDashProgress {
   version: number;
@@ -24,6 +26,9 @@ export interface BlockDashProgress {
   /** Runners bought (free ones are always owned, so they aren't listed). */
   ownedRunnerIds: string[];
   selectedRunnerId: string;
+  /** Teleports ever bought / ever used; charges left = bought − used. */
+  teleportsBought: number;
+  teleportsUsed: number;
 }
 
 export const defaultProgress: BlockDashProgress = {
@@ -34,6 +39,8 @@ export const defaultProgress: BlockDashProgress = {
   bestTimes: {},
   ownedRunnerIds: [],
   selectedRunnerId: DEFAULT_RUNNER_ID,
+  teleportsBought: 0,
+  teleportsUsed: 0,
 };
 
 const isCount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
@@ -54,7 +61,15 @@ export function migrateProgress(raw: unknown): BlockDashProgress {
     bestTimes,
     ownedRunnerIds: ownedFrom(r.ownedRunnerIds),
     selectedRunnerId: typeof r.selectedRunnerId === "string" ? r.selectedRunnerId : DEFAULT_RUNNER_ID,
+    ...teleportsFrom(r.teleportsBought, r.teleportsUsed),
   };
+}
+
+/** Whole, non-negative counts, never more used than bought. */
+function teleportsFrom(bought: unknown, used: unknown): Pick<BlockDashProgress, "teleportsBought" | "teleportsUsed"> {
+  const b = isCount(bought) ? Math.floor(bought) : 0;
+  const u = isCount(used) ? Math.floor(used) : 0;
+  return { teleportsBought: b, teleportsUsed: Math.min(u, b) };
 }
 
 /** Keeps only real, paid-for runner ids, once each. */
@@ -77,12 +92,15 @@ export interface FinishResult {
   unlockedNext: boolean;
 }
 
-/** Applies a finished run: pays Wins, records the time, opens the next stage. */
-export function recordFinish(progress: BlockDashProgress, stage: StageDefinition, timeMs: number): FinishResult {
+/**
+ * Applies a finished run: pays Wins, records the time, opens the next stage.
+ * A run that used a teleport still pays and unlocks, but can't set a best time.
+ */
+export function recordFinish(progress: BlockDashProgress, stage: StageDefinition, timeMs: number, teleported = false): FinishResult {
   const firstClear = !progress.completedStageIds.includes(stage.id);
   const winsEarned = firstClear || economy.winsEveryFinish ? stage.winReward : 0;
   const previousBest = progress.bestTimes[stage.id];
-  const isNewBest = previousBest === undefined || timeMs < previousBest;
+  const isNewBest = !teleported && (previousBest === undefined || timeMs < previousBest);
   const nextUnlock = Math.max(progress.unlockedStage, stage.stageNumber + 1);
   return {
     progress: {
@@ -105,10 +123,10 @@ export function ownsRunner(progress: BlockDashProgress, runner: Runner): boolean
   return runner.cost === 0 || progress.ownedRunnerIds.includes(runner.id);
 }
 
-/** Wins left to spend: everything earned minus what the owned runners cost. */
+/** Wins left to spend: everything earned minus runners and teleports bought. */
 export function walletWins(progress: BlockDashProgress): number {
-  const spent = progress.ownedRunnerIds.reduce((sum, id) => sum + getRunner(id).cost, 0);
-  return Math.max(0, progress.wins - spent);
+  const runnerSpend = progress.ownedRunnerIds.reduce((sum, id) => sum + getRunner(id).cost, 0);
+  return Math.max(0, progress.wins - runnerSpend - teleportSpend(progress.teleportsBought));
 }
 
 /** The runner to play as; falls back to the default if the choice isn't owned. */
@@ -132,4 +150,27 @@ export function buyRunner(progress: BlockDashProgress, runner: Runner): BuyResul
 /** Plays as an owned runner; anything else leaves progress unchanged. */
 export function chooseRunner(progress: BlockDashProgress, runner: Runner): BlockDashProgress {
   return ownsRunner(progress, runner) ? { ...progress, selectedRunnerId: runner.id } : progress;
+}
+
+// --- Teleports -------------------------------------------------------------------
+
+export function teleportCharges(progress: BlockDashProgress): number {
+  return progress.teleportsBought - progress.teleportsUsed;
+}
+
+/** What the next teleport costs; each one is pricier than the last. */
+export function nextTeleportPrice(progress: BlockDashProgress): number {
+  return teleportPrice(progress.teleportsBought);
+}
+
+export type TeleportBuyResult = { ok: true; progress: BlockDashProgress } | { ok: false; reason: "not-enough-wins" };
+
+export function buyTeleport(progress: BlockDashProgress): TeleportBuyResult {
+  if (walletWins(progress) < nextTeleportPrice(progress)) return { ok: false, reason: "not-enough-wins" };
+  return { ok: true, progress: { ...progress, teleportsBought: progress.teleportsBought + 1 } };
+}
+
+/** Spends one charge; null when there's none left. */
+export function spendTeleport(progress: BlockDashProgress): BlockDashProgress | null {
+  return teleportCharges(progress) > 0 ? { ...progress, teleportsUsed: progress.teleportsUsed + 1 } : null;
 }

@@ -1,10 +1,15 @@
 // Block Dash runners + Wins spending (no browser). Run with: node tests/block-dash-runners.ts
 import { runners, getRunner, DEFAULT_RUNNER_ID } from "../src/keyboard-run/data/runners.ts";
 import { characters } from "../src/data/characters.ts";
+import { teleportPrice } from "../src/keyboard-run/data/economy.ts";
 import { world1 } from "../src/keyboard-run/data/stages/world1.ts";
 import {
   buyRunner,
+  buyTeleport,
   chooseRunner,
+  nextTeleportPrice,
+  spendTeleport,
+  teleportCharges,
   defaultProgress,
   migrateProgress,
   ownsRunner,
@@ -63,13 +68,46 @@ check("Finishing a stage adds to the wallet after spending", bought.ok && (() =>
   return walletWins(after) === 5 + world1.stages[1].winReward;
 })());
 
+// --- Teleports ------------------------------------------------------------------------
+check("Teleports cost 5, then 15, then 45 (3× each time)", teleportPrice(0) === 5 && teleportPrice(1) === 15 && teleportPrice(2) === 45);
+check("A new player has no teleports", teleportCharges(defaultProgress) === 0 && spendTeleport(defaultProgress) === null);
+check("Can't buy a teleport without enough Wins", (() => {
+  const r = buyTeleport(withWins(4));
+  return !r.ok && r.reason === "not-enough-wins";
+})());
+{
+  let p = withWins(100);
+  const one = buyTeleport(p);
+  check("Buying a teleport adds a charge and spends 5 Wins", one.ok && teleportCharges(one.progress) === 1 && walletWins(one.progress) === 95);
+  p = one.ok ? one.progress : p;
+  const two = buyTeleport(p);
+  check("The next teleport costs 15", two.ok && nextTeleportPrice(p) === 15 && walletWins(two.progress) === 80 && teleportCharges(two.progress) === 2);
+  p = two.ok ? two.progress : p;
+  const used = spendTeleport(p);
+  check("Using a teleport spends a charge but no Wins", used !== null && teleportCharges(used) === 1 && walletWins(used) === 80);
+  check("Using a teleport doesn't make the next one cheaper", used !== null && nextTeleportPrice(used) === 45);
+  check("Teleports and runners share one wallet", used !== null && (() => {
+    const r = buyRunner(used, getRunner("monkey"));
+    return r.ok && walletWins(r.progress) === 50;
+  })());
+}
+{
+  const p0 = recordFinish(defaultProgress, world1.stages[0], 40_000).progress;
+  const tele = recordFinish(p0, world1.stages[0], 10_000, true);
+  check("A teleported finish pays Wins but can't set a best time", tele.winsEarned === 1 && !tele.isNewBest && tele.progress.bestTimes["w1-s1"] === 40_000);
+  const firstTele = recordFinish(defaultProgress, world1.stages[1], 10_000, true);
+  check("A teleported first clear still opens the next stage", firstTele.unlockedNext && firstTele.progress.bestTimes["w1-s2"] === undefined);
+}
+
 // --- Saves ---------------------------------------------------------------------------
 const v1 = { version: 1, wins: 31, unlockedStage: 6, completedStageIds: ["w1-s1"], bestTimes: { "w1-s1": 40_000 } };
 const migrated = migrateProgress(v1);
 check("A version 1 save keeps its Wins and stages", migrated.wins === 31 && migrated.unlockedStage === 6 && migrated.bestTimes["w1-s1"] === 40_000);
-check("A version 1 save starts as Blocky with nothing bought", migrated.version === 2 && migrated.ownedRunnerIds.length === 0 && migrated.selectedRunnerId === "blocky");
+check("A version 1 save starts as Blocky with nothing bought", migrated.version === 3 && migrated.teleportsBought === 0 && migrated.ownedRunnerIds.length === 0 && migrated.selectedRunnerId === "blocky");
 const junk = migrateProgress({ ...v1, ownedRunnerIds: ["cat", "cat", "dragon", 7, "penguin"], selectedRunnerId: "robot" });
 check("Broken runner lists are cleaned (duplicates, unknown and free ids)", JSON.stringify(junk.ownedRunnerIds) === JSON.stringify(["cat"]));
+const badTeleports = migrateProgress({ ...v1, teleportsBought: 2.7, teleportsUsed: 9 });
+check("Broken teleport counts are cleaned (never more used than bought)", badTeleports.teleportsBought === 2 && badTeleports.teleportsUsed === 2);
 check("A chosen runner that isn't owned falls back to Blocky", selectedRunner(junk).id === "blocky");
 check("A save with runners survives a save/load round trip", bought.ok && JSON.stringify(migrateProgress(JSON.parse(JSON.stringify(bought.progress)))) === JSON.stringify(bought.progress));
 

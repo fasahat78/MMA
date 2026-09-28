@@ -3,7 +3,7 @@ import type { SimInput } from "./sim/playerMotion";
 
 // Keyboard + mouse (brief §4) and Roblox-style touch controls. Tracks held
 // keys, turns mouse movement (pointer lock) or a right-side touch drag into
-// camera yaw/pitch, reports Esc / R / Enter, and merges in the touch stick
+// camera yaw/pitch, reports Esc / R / T / Enter, and merges in the touch stick
 // and jump button. On touch, stick distance sets speed up to full sprint —
 // there is no separate sprint control, as in Roblox.
 
@@ -18,6 +18,7 @@ const SWALLOW = new Set([...FORWARD, ...BACK, ...LEFT, ...RIGHT, ...JUMP]);
 
 export interface InputCallbacks {
   onRespawn: () => void;
+  onTeleport: () => void;
   onEscape: () => void;
   onConfirm: () => void;
   onPointerLockChange: (locked: boolean) => void;
@@ -133,6 +134,7 @@ export class InputController {
     this.held.add(e.code);
     if (JUMP.includes(e.code)) this.jumpQueued = true;
     if (e.code === "KeyR") this.callbacks.onRespawn();
+    if (e.code === "KeyT") this.callbacks.onTeleport();
     if (e.code === "Escape") this.callbacks.onEscape();
     // A focused button handles Enter itself; don't also act on it here.
     if (e.code === "Enter" && !(e.target instanceof HTMLButtonElement)) this.callbacks.onConfirm();

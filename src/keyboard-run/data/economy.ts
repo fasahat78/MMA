@@ -28,6 +28,28 @@ export const runnerPrices = {
   explorer: 8000,
 } as const;
 
+/**
+ * Teleports (Zoya's V1 answer: prices rise much faster than stage rewards).
+ * The nth teleport ever bought costs first × growth^n: 5, 15, 45, 135 …
+ * One teleport = one jump to the next checkpoint during a run.
+ */
+export const teleportPricing = {
+  firstTeleportWins: 5,
+  priceGrowth: 3,
+} as const;
+
+/** Price of the teleport bought after `alreadyBought` earlier ones. */
+export function teleportPrice(alreadyBought: number): number {
+  return teleportPricing.firstTeleportWins * teleportPricing.priceGrowth ** alreadyBought;
+}
+
+/** Wins spent on the first `bought` teleports. */
+export function teleportSpend(bought: number): number {
+  let total = 0;
+  for (let i = 0; i < bought; i++) total += teleportPrice(i);
+  return total;
+}
+
 /** Wins for finishing stage `stageNumber` (1-based): 1, 2, 4, 8, 16… */
 export function winsForStage(stageNumber: number): number {
   return economy.firstStageWins * 2 ** (stageNumber - 1);

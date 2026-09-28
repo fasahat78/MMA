@@ -37,8 +37,11 @@ The V0 address, `#/play/keyboard-run`, still works. The code folder keeps its wo
     - The maze is plain text in `stage15.ts` (`#` wall, `.` floor, `B` boss home), so it can be edited by hand. `courseBuilder.maze()` refuses mazes that can't be solved.
 - **Wins** (`data/economy.ts`): Stage *n* pays 2^(n−1), so 1, 2, 4 … 16,384 for Stage 15. They're paid on every finish, Roblox-style.
 - **Runners** (`data/runners.ts`): block-style versions of the 12 Maze Mates animals, plus the original runner (Blocky).
-  - Blocky and Penguin are free; the rest cost Wins (`runnerPrices` in `data/economy.ts`). Buy and choose them from **Runners** on the map.
+  - Blocky and Penguin are free; the rest cost Wins (`runnerPrices` in `data/economy.ts`). Buy and choose them in the **Shop** on the map.
   - A look is colours plus a few boxes on the head (ears, snout, horn…), so a new animal is data only.
+- **Teleports** (Zoya's V1 idea): bought in the Shop, each costing 3× the last (5, 15, 45 …; `teleportPricing` in `data/economy.ts`).
+  - In a run, **T** or the ⚡ button jumps to the next checkpoint. It never skips past the last checkpoint, so the final stretch is always run for real.
+  - A run that used a teleport still pays Wins and opens the next stage, but can't set a best time.
   - `wins` in the save is every Win ever earned; what's left to spend is worked out from the runners owned. So merging two open tabs never loses Wins or runners. Buying in both tabs at the same instant could, at worst, leave the wallet at 0.
 - **Progress** (`state/`): Wins, the unlocked stage and best times are saved on the device in `localStorage` (`block-dash-progress`, versioned).
   - Finishing a stage opens the next one.

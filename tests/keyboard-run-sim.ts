@@ -313,5 +313,22 @@ function hop(fromId: string, toId: string, opts: { sprint?: boolean; runUpSec?: 
   sim.dispose();
 }
 
+// Teleport (bought with Wins): straight to the next checkpoint, never past the last.
+{
+  const sim = fresh();
+  const total = sim.checkpointCount;
+  const events: SimEvent[] = [];
+  const first = sim.teleportToNextCheckpoint();
+  events.push(...sim.drainEvents());
+  run(sim, 0.6);
+  check("Teleport jumps to checkpoint 1 and starts the clock", first && sim.activeCheckpoint === 1 && sim.runStarted && sim.grounded && events.some((e) => e.type === "teleport" && e.index === 1));
+  check("A teleported run is marked (no best time)", sim.teleported);
+  for (let i = 1; i < total; i++) sim.teleportToNextCheckpoint();
+  check("Teleports stop at the last checkpoint", sim.activeCheckpoint === total && !sim.canTeleport && !sim.teleportToNextCheckpoint());
+  sim.restartRun();
+  check("Restart clears the teleport mark", !sim.teleported && sim.canTeleport);
+  sim.dispose();
+}
+
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll keyboard-run sim checks passed");
 process.exit(failures ? 1 : 0);

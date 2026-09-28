@@ -15,12 +15,29 @@ interface Props {
   onPause: () => void;
   /** Touch screens get a ↺ button in the top bar (keyboard players use R). */
   onRespawn: () => void;
+  /** Teleports bought and not yet used; the ⚡ button shows while there are any. */
+  teleportsLeft: number;
+  onTeleport: () => void;
 }
 
 const pill = "rounded-full bg-white/85 px-3 py-2 text-sm font-extrabold text-slate-700 shadow-md backdrop-blur";
 
 // Always-on overlay: exit, run clock, checkpoint progress, control hints.
-export function RunHud({ timeMs, checkpoint, checkpointTotal, stageNumber, runStarted, mouseCaptured, touchMode, showSprintHint, onExit, onPause, onRespawn }: Props) {
+export function RunHud({
+  timeMs,
+  checkpoint,
+  checkpointTotal,
+  stageNumber,
+  runStarted,
+  mouseCaptured,
+  touchMode,
+  showSprintHint,
+  onExit,
+  onPause,
+  onRespawn,
+  teleportsLeft,
+  onTeleport,
+}: Props) {
   return (
     <>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -47,6 +64,15 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, stageNumber, runSt
           <div className={pill} aria-label={`Checkpoint ${checkpoint} of ${checkpointTotal}`}>
             🚩 {checkpoint}/{checkpointTotal}
           </div>
+          {teleportsLeft > 0 && (
+            <button
+              onClick={onTeleport}
+              className={`btn-pop pointer-events-auto min-h-[44px] rounded-full bg-violet-500 px-3 py-2 text-sm font-extrabold text-white shadow-md`}
+              aria-label={`Teleport to the next checkpoint (${teleportsLeft} left)`}
+            >
+              ⚡ {teleportsLeft}
+            </button>
+          )}
           {touchMode && (
             <button
               onClick={onRespawn}
@@ -76,7 +102,7 @@ export function RunHud({ timeMs, checkpoint, checkpointTotal, stageNumber, runSt
         <div className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)]">
           {runStarted ? (
             <div className="rounded-2xl bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-600 shadow backdrop-blur">
-              R respawn · Esc pause
+              R respawn{teleportsLeft > 0 ? " · T teleport" : ""} · Esc pause
             </div>
           ) : (
             <ControlsCard touchMode={false} />
@@ -107,6 +133,7 @@ const KEYBOARD_CONTROLS: Array<[string, string]> = [
   ["Space", "Jump (hold for higher)"],
   ["Mouse", "Look around — click the game first"],
   ["R", "Back to last checkpoint"],
+  ["T", "Teleport to next checkpoint (buy in the Shop)"],
   ["Esc", "Pause"],
 ];
 
@@ -115,6 +142,7 @@ const TOUCH_CONTROLS: Array<[string, string]> = [
   ["Right side", "Drag to look around"],
   ["⬆", "Jump (hold for higher)"],
   ["↺", "Back to last checkpoint"],
+  ["⚡", "Teleport to next checkpoint (buy in the Shop)"],
   ["⏸", "Pause"],
 ];
 
